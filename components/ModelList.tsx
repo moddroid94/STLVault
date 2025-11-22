@@ -1,7 +1,8 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, MoreVertical, Trash2, ExternalLink } from 'lucide-react';
+import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, MoreVertical, Trash2, ExternalLink, Download } from 'lucide-react';
 import { STLModel } from '../types';
+import { api } from '../services/api';
 
 interface ModelListProps {
   models: STLModel[];
@@ -323,6 +324,19 @@ const ModelList: React.FC<ModelListProps> = ({
                             >
                                 <ExternalLink className="w-3 h-3" /> Open
                             </button>
+
+                            <a 
+                                href={api.getDownloadUrl(model)} 
+                                download={model.name}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuModelId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-vault-700 hover:text-white flex items-center gap-2"
+                            >
+                                <Download className="w-3 h-3" /> Download
+                            </a>
+
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
