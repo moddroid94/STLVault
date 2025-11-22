@@ -1,9 +1,41 @@
-import React, { Suspense, useLayoutEffect, useState, useRef, useEffect, useMemo } from 'react';
+import React, { Suspense, useLayoutEffect, useState, useRef, useEffect, useMemo, Component, ReactNode } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
 import { OrbitControls, Stage, Grid, Center, Html } from '@react-three/drei';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { Maximize, Minimize, FileWarning } from 'lucide-react';
 import * as THREE from 'three';
+
+// Defined before usage to ensure proper type resolution
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  onError: () => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+// Simple error boundary for the canvas content
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    console.error("3D Viewer Error:", error);
+    this.props.onError();
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 
 interface Viewer3DProps {
   url: string;
@@ -131,27 +163,5 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
     </div>
   );
 };
-
-// Simple error boundary for the canvas content
-class ErrorBoundary extends React.Component<{ children: React.ReactNode, onError: () => void }, { hasError: boolean }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any) {
-    console.error("3D Viewer Error:", error);
-    this.props.onError();
-  }
-
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children;
-  }
-}
 
 export default Viewer3D;

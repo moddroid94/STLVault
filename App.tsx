@@ -6,7 +6,7 @@ import DetailPanel from './components/DetailPanel';
 import { STLModel, Folder } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
-import { FolderInput, Tags, X } from 'lucide-react';
+import { FolderInput, Tags, X, Trash2 } from 'lucide-react';
 
 const App = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -159,25 +159,15 @@ const App = () => {
     }
   };
 
-  const handleBulkActionClick = (action: 'move' | 'tag' | 'delete') => {
-    if (action === 'delete') {
-        handleBulkDelete();
-    } else if (action === 'move') {
-        setShowMoveModal(true);
-    } else if (action === 'tag') {
-        setBulkTags('');
-        setShowTagModal(true);
-    }
-  };
-
   const handleBulkDelete = async () => {
     if (!window.confirm(`Delete ${selectedIds.size} selected models? This cannot be undone.`)) return;
     try {
-        const ids = Array.from(selectedIds);
+        const ids = Array.from(selectedIds) as string[];
         await api.bulkDeleteModels(ids);
-        setModels(prev => prev.filter(m => !selectedIds.has(m.id)));
+        // Use 'ids' variable for filter to ensure we don't rely on stale state closure
+        setModels(prev => prev.filter(m => !ids.includes(m.id)));
         setSelectedIds(new Set());
-        if (selectedModelId && selectedIds.has(selectedModelId)) setSelectedModelId(null);
+        if (selectedModelId && ids.includes(selectedModelId)) setSelectedModelId(null);
     } catch (e) {
         console.error("Bulk delete failed", e);
     }
@@ -185,7 +175,7 @@ const App = () => {
 
   const handleBulkMoveSubmit = async (targetFolderId: string) => {
      try {
-        const ids = Array.from(selectedIds);
+        const ids = Array.from(selectedIds) as string[];
         await api.bulkMoveModels(ids, targetFolderId);
         setModels(prev => prev.map(m => selectedIds.has(m.id) ? { ...m, folderId: targetFolderId } : m));
         setShowMoveModal(false);
@@ -198,7 +188,7 @@ const App = () => {
   const handleBulkTagSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
-         const ids = Array.from(selectedIds);
+         const ids = Array.from(selectedIds) as string[];
          const tags = bulkTags.split(',').map(t => t.trim()).filter(Boolean);
          await api.bulkAddTags(ids, tags);
          setModels(prev => prev.map(m => {
@@ -239,13 +229,13 @@ const App = () => {
             models={filteredModels} 
             onUpload={handleUpload}
             onSelectModel={(m) => setSelectedModelId(m.id)}
+            onDelete={handleDeleteModel}
             selectedModelId={selectedModelId}
             // Selection Props
             selectedIds={selectedIds}
             onToggleSelection={handleToggleSelection}
             onSelectAll={handleSelectAll}
             onClearSelection={() => setSelectedIds(new Set())}
-            onBulkAction={handleBulkActionClick}
           />
         )}
 
@@ -266,6 +256,51 @@ const App = () => {
             onDelete={handleDeleteModel}
           />
         </div>
+
+        {/* Floating Action Bar - Moved to App to ensure it is top-level Z-index */}
+        {selectedIds.size > 0 && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-vault-800 border border-vault-600 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 duration-200">
+            <div className="flex items-center gap-2 border-r border-vault-600 pr-4">
+                <span className="font-bold text-white">{selectedIds.size}</span>
+                <span className="text-slate-400 text-sm">selected</span>
+                <button onClick={() => setSelectedIds(new Set())} className="ml-2 text-slate-500 hover:text-white">
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
+            
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setShowMoveModal(true)}
+                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2"
+                    title="Move Selected"
+                >
+                    <FolderInput className="w-4 h-4" />
+                    <span className="text-sm font-medium hidden sm:inline">Move</span>
+                </button>
+                
+                <button 
+                    onClick={() => {
+                        setBulkTags('');
+                        setShowTagModal(true);
+                    }}
+                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
+                    title="Tag Selected"
+                >
+                    <Tags className="w-4 h-4" />
+                    <span className="text-sm font-medium hidden sm:inline">Tag</span>
+                </button>
+                
+                <button 
+                    onClick={handleBulkDelete}
+                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-2"
+                    title="Delete Selected"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="text-sm font-medium hidden sm:inline">Delete</span>
+                </button>
+            </div>
+            </div>
+        )}
 
         {/* Modals Layer */}
         {showMoveModal && (

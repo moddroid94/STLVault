@@ -70,7 +70,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleDeleteClick = (e: React.MouseEvent, folderId: string, count: number) => {
     e.preventDefault();
     e.stopPropagation();
-    if (count > 0) return; // Prevent deletion if not empty
+    
+    if (count > 0) {
+        alert("Folder must be empty to delete.");
+        return;
+    }
+    
     onDeleteFolder(folderId);
   };
 
@@ -147,16 +152,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </form>
               ) : (
                 <div
-                  onClick={() => onSelectFolder(folder.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group/item cursor-pointer ${
+                  className={`w-full flex items-center rounded-md transition-colors group/item relative ${
                     currentFolderId === folder.id ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-vault-800 hover:text-slate-200'
                   }`}
                 >
-                  <FolderIcon className="w-4 h-4 shrink-0" />
-                  <span className="text-sm font-medium truncate flex-1 text-left select-none">{folder.name}</span>
+                  {/* Clickable selection area */}
+                  <div 
+                    className="flex-1 flex items-center gap-3 px-3 py-2 cursor-pointer min-w-0"
+                    onClick={() => onSelectFolder(folder.id)}
+                  >
+                    <FolderIcon className="w-4 h-4 shrink-0" />
+                    <span className="text-sm font-medium truncate select-none">{folder.name}</span>
+                  </div>
                   
-                  {/* Hover Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                  {/* Hover Actions - z-10 ensures it's above selection area if overlapping occurs, though flex avoids it */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity px-1 relative z-10">
                     <button 
                       type="button"
                       onClick={(e) => handleStartEdit(e, folder)}
@@ -168,7 +178,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <button 
                       type="button"
                       onClick={(e) => handleDeleteClick(e, folder.id, count)}
-                      disabled={count > 0}
                       className={`p-1 rounded focus:outline-none ${
                         count > 0 
                           ? 'text-slate-700 cursor-not-allowed' 
@@ -180,7 +189,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </button>
                   </div>
                   
-                  <span className={`text-xs ${currentFolderId === folder.id ? 'text-blue-500' : 'text-slate-600'} w-6 text-right`}>{count}</span>
+                  <div 
+                    className="px-3 py-2 cursor-pointer"
+                    onClick={() => onSelectFolder(folder.id)}
+                  >
+                    <span className={`text-xs ${currentFolderId === folder.id ? 'text-blue-500' : 'text-slate-600'} w-6 text-right block`}>{count}</span>
+                  </div>
                 </div>
               )}
             </div>

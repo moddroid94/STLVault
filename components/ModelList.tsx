@@ -1,12 +1,13 @@
 
-import React, { useRef, useState, useMemo } from 'react';
-import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, FolderInput, Tags, Trash2, X, MoreVertical } from 'lucide-react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
+import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, MoreVertical, Trash2, ExternalLink } from 'lucide-react';
 import { STLModel } from '../types';
 
 interface ModelListProps {
   models: STLModel[];
   onUpload: (files: FileList) => void;
   onSelectModel: (model: STLModel) => void;
+  onDelete: (id: string) => void;
   selectedModelId: string | null;
   
   // Selection Props
@@ -14,7 +15,6 @@ interface ModelListProps {
   onToggleSelection: (id: string) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
-  onBulkAction: (action: 'move' | 'tag' | 'delete') => void;
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc';
@@ -23,17 +23,25 @@ const ModelList: React.FC<ModelListProps> = ({
   models, 
   onUpload, 
   onSelectModel, 
+  onDelete,
   selectedModelId,
   selectedIds,
   onToggleSelection,
   onSelectAll,
-  onClearSelection,
-  onBulkAction
+  onClearSelection
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [activeMenuModelId, setActiveMenuModelId] = useState<string | null>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setActiveMenuModelId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const processedModels = useMemo(() => {
     let result = [...models];
@@ -211,9 +219,12 @@ const ModelList: React.FC<ModelListProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
           {processedModels.map((model) => {
             const isSelected = selectedIds.has(model.id);
+            const isMenuOpen = activeMenuModelId === model.id;
+            
             return (
               <div
                 key={model.id}
+                style={{ zIndex: isMenuOpen ? 20 : 'auto' }}
                 onClick={() => {
                     if (selectionMode) {
                         onToggleSelection(model.id);
@@ -287,55 +298,48 @@ const ModelList: React.FC<ModelListProps> = ({
                       </span>
                     </div>
                   </div>
-                  <button className="text-slate-500 hover:text-white p-1 rounded hover:bg-vault-800">
-                      <MoreVertical className="w-4 h-4" />
-                  </button>
+                  
+                  <div className="relative">
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuModelId(isMenuOpen ? null : model.id);
+                        }}
+                        className="text-slate-500 hover:text-white p-1 rounded hover:bg-vault-800 transition-colors"
+                    >
+                        <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {isMenuOpen && (
+                        <div className="absolute right-0 top-full mt-1 w-32 bg-vault-800 border border-vault-600 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectModel(model);
+                                    setActiveMenuModelId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-vault-700 hover:text-white flex items-center gap-2"
+                            >
+                                <ExternalLink className="w-3 h-3" /> Open
+                            </button>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuModelId(null);
+                                    onDelete(model.id);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center gap-2"
+                            >
+                                <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                        </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Floating Action Bar */}
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-vault-800 border border-vault-600 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-40 animate-in slide-in-from-bottom-10 duration-200">
-          <div className="flex items-center gap-2 border-r border-vault-600 pr-4">
-             <span className="font-bold text-white">{selectedIds.size}</span>
-             <span className="text-slate-400 text-sm">selected</span>
-             <button onClick={onClearSelection} className="ml-2 text-slate-500 hover:text-white">
-                <X className="w-4 h-4" />
-             </button>
-          </div>
-          
-          <div className="flex items-center gap-2">
-             <button 
-                onClick={() => onBulkAction('move')}
-                className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2"
-                title="Move Selected"
-             >
-                <FolderInput className="w-4 h-4" />
-                <span className="text-sm font-medium hidden sm:inline">Move</span>
-             </button>
-             
-             <button 
-                onClick={() => onBulkAction('tag')}
-                className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
-                title="Tag Selected"
-             >
-                <Tags className="w-4 h-4" />
-                <span className="text-sm font-medium hidden sm:inline">Tag</span>
-             </button>
-             
-             <button 
-                onClick={() => onBulkAction('delete')}
-                className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-2"
-                title="Delete Selected"
-             >
-                <Trash2 className="w-4 h-4" />
-                <span className="text-sm font-medium hidden sm:inline">Delete</span>
-             </button>
-          </div>
         </div>
       )}
     </div>
