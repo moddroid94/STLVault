@@ -132,7 +132,7 @@ export const api = {
   },
 
   // 6. UPLOAD Model
-  uploadModel: async (file: File, folderId: string, thumbnail?: string): Promise<STLModel> => {
+  uploadModel: async (file: File, folderId: string, thumbnail?: string, tags: string[] = []): Promise<STLModel> => {
     if (USE_MOCK_API) {
       await new Promise(r => setTimeout(r, 1500)); // Simulate upload time
       
@@ -150,7 +150,7 @@ export const api = {
         url: fakeUrl,
         size: file.size,
         dateAdded: Date.now(),
-        tags: [],
+        tags: tags,
         description: '',
         thumbnail: thumbnail
       };
@@ -164,6 +164,7 @@ export const api = {
     formData.append('file', file);
     formData.append('folderId', folderId);
     if (thumbnail) formData.append('thumbnail', thumbnail); // Send base64 thumbnail
+    if (tags.length > 0) formData.append('tags', JSON.stringify(tags));
 
     const res = await fetch(`${API_BASE_URL}/models/upload`, {
       method: 'POST',

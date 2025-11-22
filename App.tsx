@@ -6,7 +6,7 @@ import DetailPanel from './components/DetailPanel';
 import { STLModel, Folder } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
-import { FolderInput, Tags, X, Trash2, AlertTriangle, Download } from 'lucide-react';
+import { FolderInput, Tags, X, Trash2, AlertTriangle, Download, FileUp } from 'lucide-react';
 import JSZip from 'jszip';
 
 const App = () => {
@@ -22,6 +22,12 @@ const App = () => {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [bulkTags, setBulkTags] = useState('');
+
+  // Upload Modal State
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploadFolderId, setUploadFolderId] = useState('');
+  const [uploadTags, setUploadTags] = useState('');
 
   // Delete Confirmation State
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
@@ -89,13 +95,10 @@ const App = () => {
     setDeleteConfirmState({ isOpen: true, type: 'folder', id });
   };
 
-  const handleUpload = async (fileList: FileList, specificFolderId?: string) => {
-    const files = Array.from(fileList);
+  // Core upload logic
+  const executeUpload = async (files: File[], targetFolderId: string, tags: string[]) => {
     setUploadQueue(prev => prev + files.length);
     
-    // Determine target folder: Use specific if provided, otherwise current, defaulting to first available if 'all'
-    const targetFolderId = specificFolderId || (currentFolderId === 'all' && folders.length > 0 ? folders[0].id : currentFolderId);
-
     for (const file of files) {
       try {
         let thumbnail: string | undefined = undefined;
@@ -107,8 +110,7 @@ const App = () => {
            }
         }
 
-        const newModel = await api.uploadModel(file, targetFolderId, thumbnail);
-        
+        const newModel = await api.uploadModel(file, targetFolderId, thumbnail, tags);
         setModels(prev => [newModel, ...prev]);
       } catch (error) {
         console.error(`Failed to upload ${file.name}:`, error);
@@ -116,6 +118,39 @@ const App = () => {
         setUploadQueue(prev => prev - 1);
       }
     }
+  };
+
+  const handleUpload = async (fileList: FileList, specificFolderId?: string) => {
+    const files = Array.from(fileList);
+    
+    // If dropping into the general area ("all") and not a specific folder drop
+    // We want to show the modal to let user pick a folder and add tags
+    if (!specificFolderId && currentFolderId === 'all') {
+      setPendingFiles(files);
+      // Default to first folder if available
+      setUploadFolderId(folders.length > 0 ? folders[0].id : '');
+      setUploadTags('');
+      setShowUploadModal(true);
+      return;
+    }
+
+    // Normal flow (specific folder target or current view is a folder)
+    const targetFolderId = specificFolderId || currentFolderId;
+    
+    // Fallback if for some reason 'all' is passed without modal (shouldn't happen with above check)
+    const finalFolderId = targetFolderId === 'all' && folders.length > 0 ? folders[0].id : targetFolderId;
+    
+    await executeUpload(files, finalFolderId, []);
+  };
+
+  const handleConfirmUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFolderId) return;
+    
+    const tags = uploadTags.split(',').map(t => t.trim()).filter(Boolean);
+    setShowUploadModal(false);
+    await executeUpload(pendingFiles, uploadFolderId, tags);
+    setPendingFiles([]);
   };
 
   const handleUpdateModel = async (id: string, updates: Partial<STLModel>) => {
@@ -321,6 +356,14 @@ const App = () => {
            </div>
         )}
 
+        {/* Backdrop for closing sidebar */}
+        <div 
+            className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 transition-opacity duration-300 ${
+                selectedModelId ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setSelectedModelId(null)}
+        />
+
         {/* Slide-over panel */}
         <div className={`absolute top-0 right-0 h-full transition-transform duration-300 ease-in-out transform ${selectedModelId ? 'translate-x-0' : 'translate-x-full'} z-30`}>
           <DetailPanel 
@@ -387,6 +430,74 @@ const App = () => {
 
         {/* Modals Layer */}
         
+        {/* Upload Modal */}
+        {showUploadModal && (
+            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <FileUp className="w-5 h-5 text-blue-500" /> Upload Files
+                        </h3>
+                        <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-white">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <form onSubmit={handleConfirmUpload}>
+                        <div className="mb-4 p-3 bg-vault-900/50 rounded-lg border border-vault-700/50">
+                            <p className="text-sm text-slate-300 font-medium">{pendingFiles.length} files selected</p>
+                            <p className="text-xs text-slate-500 truncate mt-1">
+                                {pendingFiles.map(f => f.name).join(', ')}
+                            </p>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Destination Folder</label>
+                            <select
+                                className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none"
+                                value={uploadFolderId}
+                                onChange={(e) => setUploadFolderId(e.target.value)}
+                            >
+                                <option value="" disabled>Select a folder...</option>
+                                {folders.map(folder => (
+                                    <option key={folder.id} value={folder.id}>{folder.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Add Tags (Optional)</label>
+                            <input 
+                                type="text"
+                                className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none placeholder:text-slate-600"
+                                placeholder="scifi, armor, weapon..."
+                                value={uploadTags}
+                                onChange={(e) => setUploadTags(e.target.value)}
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Separate tags with commas</p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => setShowUploadModal(false)}
+                                className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="submit"
+                                disabled={!uploadFolderId}
+                                className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Upload
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
         {/* Delete Confirmation Modal */}
         {deleteConfirmState.isOpen && (
             <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
