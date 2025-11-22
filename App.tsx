@@ -6,7 +6,7 @@ import DetailPanel from './components/DetailPanel';
 import { STLModel, Folder } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
-import { FolderInput, Tags, X, Trash2, AlertTriangle, Download, FileUp } from 'lucide-react';
+import { FolderInput, Tags, X, Trash2, AlertTriangle, Download, FileUp, Globe } from 'lucide-react';
 import JSZip from 'jszip';
 
 const App = () => {
@@ -28,6 +28,11 @@ const App = () => {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadFolderId, setUploadFolderId] = useState('');
   const [uploadTags, setUploadTags] = useState('');
+
+  // Import Modal State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importUrl, setImportUrl] = useState('');
+  const [importFolderId, setImportFolderId] = useState('');
 
   // Delete Confirmation State
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
@@ -151,6 +156,31 @@ const App = () => {
     setShowUploadModal(false);
     await executeUpload(pendingFiles, uploadFolderId, tags);
     setPendingFiles([]);
+  };
+
+  const handleOpenImport = () => {
+    setImportUrl('');
+    // Pre-select current folder if specific, otherwise first available
+    setImportFolderId(currentFolderId !== 'all' ? currentFolderId : (folders[0]?.id || ''));
+    setShowImportModal(true);
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importUrl || !importFolderId) return;
+    
+    setIsLoading(true);
+    try {
+      const newModel = await api.importModelFromUrl(importUrl, importFolderId);
+      setModels(prev => [newModel, ...prev]);
+      setShowImportModal(false);
+      setImportUrl('');
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert("Failed to import from URL");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdateModel = async (id: string, updates: Partial<STLModel>) => {
@@ -337,6 +367,7 @@ const App = () => {
           <ModelList 
             models={filteredModels} 
             onUpload={(files) => handleUpload(files)}
+            onImport={handleOpenImport}
             onSelectModel={(m) => setSelectedModelId(m.id)}
             onDelete={handleDeleteModel}
             selectedModelId={selectedModelId}
@@ -491,6 +522,69 @@ const App = () => {
                                 className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Upload
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+        
+        {/* Import URL Modal */}
+        {showImportModal && (
+            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Globe className="w-5 h-5 text-indigo-500" /> Import from URL
+                        </h3>
+                        <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-white">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <form onSubmit={handleImportSubmit}>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Model URL</label>
+                            <input 
+                                autoFocus
+                                type="url"
+                                required
+                                className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
+                                placeholder="https://www.printables.com/model/..."
+                                value={importUrl}
+                                onChange={(e) => setImportUrl(e.target.value)}
+                            />
+                            <p className="text-xs text-slate-500 mt-1">Paste a link from Printables or similar sites</p>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Destination Folder</label>
+                            <select
+                                className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none"
+                                value={importFolderId}
+                                onChange={(e) => setImportFolderId(e.target.value)}
+                            >
+                                <option value="" disabled>Select a folder...</option>
+                                {folders.map(folder => (
+                                    <option key={folder.id} value={folder.id}>{folder.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => setShowImportModal(false)}
+                                className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="submit"
+                                disabled={!importUrl || !importFolderId}
+                                className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Import
                             </button>
                         </div>
                     </form>

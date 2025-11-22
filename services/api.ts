@@ -287,5 +287,61 @@ export const api = {
       body: JSON.stringify({ ids, tags }),
     });
     if (!res.ok) throw new Error('Bulk tag failed');
+  },
+
+  // 13. IMPORT FROM URL
+  importModelFromUrl: async (url: string, folderId: string): Promise<STLModel> => {
+    if (USE_MOCK_API) {
+      await new Promise(r => setTimeout(r, 1500)); // Simulate processing
+
+      let name = "Imported Model";
+      let description = `Imported from ${url}`;
+      
+      // Simple parsing logic for Printables to make it look real
+      if (url.includes('printables.com')) {
+          const parts = url.split('/');
+          // Example: /model/12345-my-cool-model
+          const modelPart = parts.find(p => /^\d+-.+/.test(p));
+          if (modelPart) {
+             // Remove ID prefix and replace dashes
+             name = modelPart.replace(/^\d+-/, '').replace(/-/g, ' ');
+             // Capitalize words
+             name = name.replace(/\b\w/g, l => l.toUpperCase());
+          }
+      }
+
+      const store = getMockStore();
+      
+      // Create a valid minimal binary STL blob to prevent Viewer crash
+      // 80 bytes header + 4 bytes count (0 triangles)
+      const header = new Uint8Array(80);
+      const count = new Uint32Array([0]); // 4 bytes representing 0
+      // Blob constructor handles the merging of these arrays
+      const mockBlob = new Blob([header, count], { type: 'application/octet-stream' });
+      const fakeUrl = URL.createObjectURL(mockBlob);
+
+      const newModel: STLModel = {
+        id: uuidv4(),
+        name: `${name}.stl`, // Append extension so UI treats it as a file
+        folderId: folderId === 'all' ? '1' : folderId,
+        url: fakeUrl,
+        size: mockBlob.size,
+        dateAdded: Date.now(),
+        tags: ['imported', 'web'],
+        description: description
+      };
+
+      store.models.push(newModel);
+      saveMockStore(store);
+      return newModel;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/models/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, folderId }),
+    });
+    if (!res.ok) throw new Error('Import failed');
+    return res.json();
   }
 };

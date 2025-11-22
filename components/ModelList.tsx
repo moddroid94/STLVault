@@ -1,12 +1,13 @@
 
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, MoreVertical, Trash2, ExternalLink, Download } from 'lucide-react';
+import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, MoreVertical, Trash2, ExternalLink, Download, Globe } from 'lucide-react';
 import { STLModel } from '../types';
 import { api } from '../services/api';
 
 interface ModelListProps {
   models: STLModel[];
   onUpload: (files: FileList) => void;
+  onImport: () => void;
   onSelectModel: (model: STLModel) => void;
   onDelete: (id: string) => void;
   selectedModelId: string | null;
@@ -23,6 +24,7 @@ type SortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-de
 const ModelList: React.FC<ModelListProps> = ({ 
   models, 
   onUpload, 
+  onImport,
   onSelectModel, 
   onDelete,
   selectedModelId,
@@ -165,6 +167,13 @@ const ModelList: React.FC<ModelListProps> = ({
                 <CheckSquare className="w-4 h-4" />
                 Select All
              </button>
+            <button 
+              onClick={onImport}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <Globe className="w-4 h-4" />
+              Import URL
+            </button>
             <button 
               onClick={() => fileInputRef.current?.click()}
               className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
