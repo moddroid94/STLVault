@@ -6,6 +6,7 @@ import DetailPanel from './components/DetailPanel';
 import { STLModel, Folder } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
+import { FolderInput, Tags, X } from 'lucide-react';
 
 const App = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -14,6 +15,12 @@ const App = () => {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<number>(0);
+
+  // Bulk Action State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [bulkTags, setBulkTags] = useState('');
 
   // Initial Data Fetch
   useEffect(() => {
@@ -35,11 +42,15 @@ const App = () => {
     fetchData();
   }, []);
 
-  // Filter models based on selection (client-side filter for responsiveness)
-  // In a large scale app, we would fetch api.getModels(currentFolderId) when folder changes
+  // Filter models based on selection
   const filteredModels = currentFolderId === 'all' 
     ? models 
     : models.filter(m => m.folderId === currentFolderId);
+
+  // Clear selection when changing folders to avoid confusion
+  useEffect(() => {
+     setSelectedIds(new Set());
+  }, [currentFolderId]);
 
   const selectedModel = models.find(m => m.id === selectedModelId) || null;
 
@@ -62,10 +73,8 @@ const App = () => {
   };
 
   const handleDeleteFolder = async (id: string) => {
-    // Client side validation
     const hasModels = models.some(m => m.folderId === id);
     if (hasModels) {
-      // This should technically be prevented by UI, but as a safeguard:
       alert("Folder must be empty to delete.");
       return;
     }
@@ -86,13 +95,9 @@ const App = () => {
     const files = Array.from(fileList);
     setUploadQueue(prev => prev + files.length);
     
-    // Process uploads sequentially or in parallel depending on requirements
-    // Here we do them individually to update UI progressively
     for (const file of files) {
       try {
         let thumbnail: string | undefined = undefined;
-
-        // Generate thumbnail client-side before upload if it's an STL
         if (file.name.toLowerCase().endsWith('.stl')) {
            try {
              thumbnail = await generateThumbnail(file);
@@ -101,10 +106,7 @@ const App = () => {
            }
         }
 
-        // Upload to API
-        // We default to the first folder if 'all' is selected, or the current folder
         const targetFolderId = currentFolderId === 'all' && folders.length > 0 ? folders[0].id : currentFolderId;
-        
         const newModel = await api.uploadModel(file, targetFolderId, thumbnail);
         
         setModels(prev => [newModel, ...prev]);
@@ -118,20 +120,15 @@ const App = () => {
 
   const handleUpdateModel = async (id: string, updates: Partial<STLModel>) => {
     try {
-      // Optimistic update
       setModels(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
-      
-      // API call
       await api.updateModel(id, updates);
     } catch (error) {
       console.error("Failed to update model:", error);
-      // Revert logic could go here
     }
   };
 
   const handleDeleteModel = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this model?")) return;
-    
     try {
       await api.deleteModel(id);
       setModels(prev => prev.filter(m => m.id !== id));
@@ -139,6 +136,82 @@ const App = () => {
     } catch (error) {
       console.error("Failed to delete model:", error);
     }
+  };
+
+  // --- Bulk Actions Logic ---
+
+  const handleToggleSelection = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredModels.length) {
+        setSelectedIds(new Set());
+    } else {
+        const allIds = filteredModels.map(m => m.id);
+        setSelectedIds(new Set(allIds));
+    }
+  };
+
+  const handleBulkActionClick = (action: 'move' | 'tag' | 'delete') => {
+    if (action === 'delete') {
+        handleBulkDelete();
+    } else if (action === 'move') {
+        setShowMoveModal(true);
+    } else if (action === 'tag') {
+        setBulkTags('');
+        setShowTagModal(true);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.size} selected models? This cannot be undone.`)) return;
+    try {
+        const ids = Array.from(selectedIds);
+        await api.bulkDeleteModels(ids);
+        setModels(prev => prev.filter(m => !selectedIds.has(m.id)));
+        setSelectedIds(new Set());
+        if (selectedModelId && selectedIds.has(selectedModelId)) setSelectedModelId(null);
+    } catch (e) {
+        console.error("Bulk delete failed", e);
+    }
+  };
+
+  const handleBulkMoveSubmit = async (targetFolderId: string) => {
+     try {
+        const ids = Array.from(selectedIds);
+        await api.bulkMoveModels(ids, targetFolderId);
+        setModels(prev => prev.map(m => selectedIds.has(m.id) ? { ...m, folderId: targetFolderId } : m));
+        setShowMoveModal(false);
+        setSelectedIds(new Set());
+     } catch (e) {
+        console.error("Bulk move failed", e);
+     }
+  };
+
+  const handleBulkTagSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+         const ids = Array.from(selectedIds);
+         const tags = bulkTags.split(',').map(t => t.trim()).filter(Boolean);
+         await api.bulkAddTags(ids, tags);
+         setModels(prev => prev.map(m => {
+             if (selectedIds.has(m.id)) {
+                 return { ...m, tags: [...new Set([...m.tags, ...tags])] };
+             }
+             return m;
+         }));
+         setShowTagModal(false);
+         setSelectedIds(new Set());
+      } catch (err) {
+          console.error("Bulk tag failed", err);
+      }
   };
 
   return (
@@ -167,6 +240,12 @@ const App = () => {
             onUpload={handleUpload}
             onSelectModel={(m) => setSelectedModelId(m.id)}
             selectedModelId={selectedModelId}
+            // Selection Props
+            selectedIds={selectedIds}
+            onToggleSelection={handleToggleSelection}
+            onSelectAll={handleSelectAll}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onBulkAction={handleBulkActionClick}
           />
         )}
 
@@ -179,7 +258,7 @@ const App = () => {
         )}
 
         {/* Slide-over panel */}
-        <div className={`absolute top-0 right-0 h-full transition-transform duration-300 ease-in-out transform ${selectedModelId ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`absolute top-0 right-0 h-full transition-transform duration-300 ease-in-out transform ${selectedModelId ? 'translate-x-0' : 'translate-x-full'} z-30`}>
           <DetailPanel 
             model={selectedModel} 
             onClose={() => setSelectedModelId(null)}
@@ -187,6 +266,56 @@ const App = () => {
             onDelete={handleDeleteModel}
           />
         </div>
+
+        {/* Modals Layer */}
+        {showMoveModal && (
+            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-white flex items-center gap-2"><FolderInput className="w-4 h-4" /> Move to Folder</h3>
+                        <button onClick={() => setShowMoveModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                        {folders.map(folder => (
+                            <button 
+                                key={folder.id}
+                                onClick={() => handleBulkMoveSubmit(folder.id)}
+                                className="w-full text-left px-3 py-2 rounded hover:bg-vault-700 text-slate-300 hover:text-white text-sm transition-colors"
+                            >
+                                {folder.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {showTagModal && (
+            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-white flex items-center gap-2"><Tags className="w-4 h-4" /> Add Tags</h3>
+                        <button onClick={() => setShowTagModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+                    </div>
+                    <form onSubmit={handleBulkTagSubmit}>
+                        <p className="text-sm text-slate-400 mb-2">Add tags to {selectedIds.size} items (comma separated):</p>
+                        <input 
+                            autoFocus
+                            type="text"
+                            className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none mb-4"
+                            placeholder="scifi, armor, weapon..."
+                            value={bulkTags}
+                            onChange={(e) => setBulkTags(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button type="button" onClick={() => setShowTagModal(false)} className="px-3 py-1.5 text-sm text-slate-300 hover:text-white">Cancel</button>
+                            <button type="submit" className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded">Add Tags</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
       </main>
     </div>
   );

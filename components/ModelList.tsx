@@ -1,5 +1,6 @@
+
 import React, { useRef, useState, useMemo } from 'react';
-import { CloudUpload, FileBox, Calendar, Tag, MoreVertical, Search, ArrowUpDown } from 'lucide-react';
+import { CloudUpload, FileBox, Search, ArrowUpDown, CheckSquare, Square, FolderInput, Tags, Trash2, X, MoreVertical } from 'lucide-react';
 import { STLModel } from '../types';
 
 interface ModelListProps {
@@ -7,11 +8,28 @@ interface ModelListProps {
   onUpload: (files: FileList) => void;
   onSelectModel: (model: STLModel) => void;
   selectedModelId: string | null;
+  
+  // Selection Props
+  selectedIds: Set<string>;
+  onToggleSelection: (id: string) => void;
+  onSelectAll: () => void;
+  onClearSelection: () => void;
+  onBulkAction: (action: 'move' | 'tag' | 'delete') => void;
 }
 
 type SortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'size-desc' | 'size-asc';
 
-const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, selectedModelId }) => {
+const ModelList: React.FC<ModelListProps> = ({ 
+  models, 
+  onUpload, 
+  onSelectModel, 
+  selectedModelId,
+  selectedIds,
+  onToggleSelection,
+  onSelectAll,
+  onClearSelection,
+  onBulkAction
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +101,8 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
     }
   };
 
+  const selectionMode = selectedIds.size > 0;
+
   return (
     <div 
       className="flex-1 p-8 h-full overflow-y-auto bg-vault-800 relative"
@@ -114,6 +134,13 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
           </div>
           
           <div className="flex gap-3">
+             <button
+                onClick={onSelectAll}
+                className="bg-vault-700 hover:bg-vault-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+             >
+                <CheckSquare className="w-4 h-4" />
+                Select All
+             </button>
             <button 
               onClick={() => fileInputRef.current?.click()}
               className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -181,71 +208,134 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {processedModels.map((model) => (
-            <div
-              key={model.id}
-              onClick={() => onSelectModel(model)}
-              className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 ${
-                selectedModelId === model.id ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-vault-700 hover:border-vault-600'
-              }`}
-            >
-              <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
-                 {/* Thumbnail or Placeholder */}
-                 {model.thumbnail ? (
-                    <img 
-                      src={model.thumbnail} 
-                      alt={model.name} 
-                      className="w-full h-full object-contain p-2 opacity-80 group-hover:opacity-100 transition-opacity" 
-                    />
-                 ) : (
-                    <>
-                      <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
-                      <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
-                    </>
-                 )}
-                 
-                 {/* Badges */}
-                 <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end max-w-[80%]">
-                    {model.tags.slice(0, 2).map(tag => (
-                        <span key={tag} className="text-[10px] bg-black/60 text-slate-300 px-2 py-0.5 rounded-full backdrop-blur-sm truncate max-w-full">
-                            {tag}
-                        </span>
-                    ))}
-                    {model.tags.length > 2 && (
-                       <span className="text-[10px] bg-black/60 text-slate-300 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                         +{model.tags.length - 2}
-                       </span>
-                    )}
-                 </div>
-                 
-                 {/* File Type Badge */}
-                 <div className="absolute bottom-2 left-2">
-                    <span className="text-[10px] bg-blue-600/80 text-white px-1.5 py-0.5 rounded uppercase font-bold shadow-sm">
-                      {model.name.split('.').pop()}
-                    </span>
-                 </div>
-              </div>
-
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-200 truncate mb-1" title={model.name}>{model.name}</h3>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                        {(model.size / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                        {new Date(model.dateAdded).toLocaleDateString()}
-                    </span>
-                  </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-24">
+          {processedModels.map((model) => {
+            const isSelected = selectedIds.has(model.id);
+            return (
+              <div
+                key={model.id}
+                onClick={() => {
+                    if (selectionMode) {
+                        onToggleSelection(model.id);
+                    } else {
+                        onSelectModel(model);
+                    }
+                }}
+                className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative ${
+                  isSelected || selectedModelId === model.id ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-vault-700 hover:border-vault-600'
+                }`}
+              >
+                {/* Selection Checkbox */}
+                <div 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleSelection(model.id);
+                    }}
+                    className={`absolute top-4 left-4 z-10 rounded bg-vault-900/80 backdrop-blur-sm transition-opacity duration-200 p-1
+                    ${isSelected || selectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                >
+                     {isSelected ? <CheckSquare className="w-5 h-5 text-blue-500" /> : <Square className="w-5 h-5 text-slate-400 hover:text-white" />}
                 </div>
-                <button className="text-slate-500 hover:text-white p-1 rounded hover:bg-vault-800">
-                    <MoreVertical className="w-4 h-4" />
-                </button>
+
+                <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
+                   {/* Thumbnail or Placeholder */}
+                   {model.thumbnail ? (
+                      <img 
+                        src={model.thumbnail} 
+                        alt={model.name} 
+                        className="w-full h-full object-contain p-2 opacity-80 group-hover:opacity-100 transition-opacity" 
+                      />
+                   ) : (
+                      <>
+                        <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
+                        <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
+                      </>
+                   )}
+                   
+                   {/* Badges */}
+                   <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end max-w-[80%]">
+                      {model.tags.slice(0, 2).map(tag => (
+                          <span key={tag} className="text-[10px] bg-black/60 text-slate-300 px-2 py-0.5 rounded-full backdrop-blur-sm truncate max-w-full">
+                              {tag}
+                          </span>
+                      ))}
+                      {model.tags.length > 2 && (
+                         <span className="text-[10px] bg-black/60 text-slate-300 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                           +{model.tags.length - 2}
+                         </span>
+                      )}
+                   </div>
+                   
+                   {/* File Type Badge */}
+                   <div className="absolute bottom-2 left-2">
+                      <span className="text-[10px] bg-blue-600/80 text-white px-1.5 py-0.5 rounded uppercase font-bold shadow-sm">
+                        {model.name.split('.').pop()}
+                      </span>
+                   </div>
+                </div>
+
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-200 truncate mb-1" title={model.name}>{model.name}</h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                          {(model.size / (1024 * 1024)).toFixed(2)} MB
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                          {new Date(model.dateAdded).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <button className="text-slate-500 hover:text-white p-1 rounded hover:bg-vault-800">
+                      <MoreVertical className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Floating Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-vault-800 border border-vault-600 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-40 animate-in slide-in-from-bottom-10 duration-200">
+          <div className="flex items-center gap-2 border-r border-vault-600 pr-4">
+             <span className="font-bold text-white">{selectedIds.size}</span>
+             <span className="text-slate-400 text-sm">selected</span>
+             <button onClick={onClearSelection} className="ml-2 text-slate-500 hover:text-white">
+                <X className="w-4 h-4" />
+             </button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+             <button 
+                onClick={() => onBulkAction('move')}
+                className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2"
+                title="Move Selected"
+             >
+                <FolderInput className="w-4 h-4" />
+                <span className="text-sm font-medium hidden sm:inline">Move</span>
+             </button>
+             
+             <button 
+                onClick={() => onBulkAction('tag')}
+                className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
+                title="Tag Selected"
+             >
+                <Tags className="w-4 h-4" />
+                <span className="text-sm font-medium hidden sm:inline">Tag</span>
+             </button>
+             
+             <button 
+                onClick={() => onBulkAction('delete')}
+                className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-2"
+                title="Delete Selected"
+             >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm font-medium hidden sm:inline">Delete</span>
+             </button>
+          </div>
         </div>
       )}
     </div>

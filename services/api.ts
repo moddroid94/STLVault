@@ -197,10 +197,70 @@ export const api = {
   },
   
   // 9. GET Download URL
-  // Helper to construct the full download link
   getDownloadUrl: (model: STLModel) => {
     if (USE_MOCK_API) return model.url;
-    // Assuming the API returns a relative path or ID-based download route
     return `${API_BASE_URL}/models/${model.id}/download`;
+  },
+
+  // 10. BULK DELETE
+  bulkDeleteModels: async (ids: string[]): Promise<void> => {
+    if (USE_MOCK_API) {
+      await new Promise(r => setTimeout(r, 400));
+      const store = getMockStore();
+      store.models = store.models.filter((m: STLModel) => !ids.includes(m.id));
+      saveMockStore(store);
+      return;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/models/bulk-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) throw new Error('Bulk delete failed');
+  },
+
+  // 11. BULK MOVE
+  bulkMoveModels: async (ids: string[], folderId: string): Promise<void> => {
+    if (USE_MOCK_API) {
+      await new Promise(r => setTimeout(r, 400));
+      const store = getMockStore();
+      store.models = store.models.map((m: STLModel) => 
+        ids.includes(m.id) ? { ...m, folderId } : m
+      );
+      saveMockStore(store);
+      return;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/models/bulk-move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, folderId }),
+    });
+    if (!res.ok) throw new Error('Bulk move failed');
+  },
+
+  // 12. BULK TAG
+  bulkAddTags: async (ids: string[], tags: string[]): Promise<void> => {
+    if (USE_MOCK_API) {
+      await new Promise(r => setTimeout(r, 400));
+      const store = getMockStore();
+      store.models = store.models.map((m: STLModel) => {
+        if (ids.includes(m.id)) {
+          const newTags = [...new Set([...m.tags, ...tags])];
+          return { ...m, tags: newTags };
+        }
+        return m;
+      });
+      saveMockStore(store);
+      return;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/models/bulk-tag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, tags }),
+    });
+    if (!res.ok) throw new Error('Bulk tag failed');
   }
 };

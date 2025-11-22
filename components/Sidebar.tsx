@@ -146,41 +146,42 @@ const Sidebar: React.FC<SidebarProps> = ({
                    </div>
                 </form>
               ) : (
-                <button
+                <div
                   onClick={() => onSelectFolder(folder.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group/item ${
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group/item cursor-pointer ${
                     currentFolderId === folder.id ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-vault-800 hover:text-slate-200'
                   }`}
                 >
                   <FolderIcon className="w-4 h-4 shrink-0" />
-                  <span className="text-sm font-medium truncate flex-1 text-left">{folder.name}</span>
+                  <span className="text-sm font-medium truncate flex-1 text-left select-none">{folder.name}</span>
                   
                   {/* Hover Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                    <div 
-                      role="button"
+                    <button 
+                      type="button"
                       onClick={(e) => handleStartEdit(e, folder)}
-                      className="p-1 hover:bg-vault-700 rounded text-slate-500 hover:text-blue-400"
+                      className="p-1 hover:bg-vault-700 rounded text-slate-500 hover:text-blue-400 focus:outline-none"
                       title="Rename Folder"
                     >
                       <Pencil className="w-3 h-3" />
-                    </div>
-                    <div 
-                      role="button"
+                    </button>
+                    <button 
+                      type="button"
                       onClick={(e) => handleDeleteClick(e, folder.id, count)}
-                      className={`p-1 rounded ${
+                      disabled={count > 0}
+                      className={`p-1 rounded focus:outline-none ${
                         count > 0 
                           ? 'text-slate-700 cursor-not-allowed' 
-                          : 'hover:bg-vault-700 text-slate-500 hover:text-red-400 cursor-pointer'
+                          : 'hover:bg-vault-700 text-slate-500 hover:text-red-400'
                       }`}
                       title={count > 0 ? "Folder must be empty to delete" : "Delete Folder"}
                     >
                       <Trash2 className="w-3 h-3" />
-                    </div>
+                    </button>
                   </div>
                   
                   <span className={`text-xs ${currentFolderId === folder.id ? 'text-blue-500' : 'text-slate-600'} w-6 text-right`}>{count}</span>
-                </button>
+                </div>
               )}
             </div>
           );
