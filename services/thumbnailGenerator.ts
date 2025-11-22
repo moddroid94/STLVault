@@ -1,9 +1,18 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 
 export const generateThumbnail = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const loader = new STLLoader();
+    const is3MF = file.name.toLowerCase().endsWith('.3mf');
+    const isSTL = file.name.toLowerCase().endsWith('.stl');
+
+    if (!isSTL && !is3MF) {
+        // Skip unsupported
+        reject(new Error("Unsupported file type for thumbnail"));
+        return;
+    }
+
     const reader = new FileReader();
 
     reader.onload = (event) => {
@@ -13,7 +22,23 @@ export const generateThumbnail = async (file: File): Promise<string> => {
             return;
         }
         const contents = event.target.result as ArrayBuffer;
-        const geometry = loader.parse(contents);
+        
+        let object: THREE.Object3D;
+
+        if (is3MF) {
+            const loader = new ThreeMFLoader();
+            // 3MFLoader parse returns a Group
+            object = loader.parse(contents);
+        } else {
+            const loader = new STLLoader();
+            const geometry = loader.parse(contents);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: 0x3b82f6,
+                roughness: 0.5,
+                metalness: 0.2 
+            });
+            object = new THREE.Mesh(geometry, material);
+        }
 
         // Setup scene for snapshot
         const scene = new THREE.Scene();
@@ -22,24 +47,14 @@ export const generateThumbnail = async (file: File): Promise<string> => {
 
         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
         
-        // Material - matching the app's accent blue style
-        const material = new THREE.MeshStandardMaterial({ 
-          color: 0x3b82f6,
-          roughness: 0.5,
-          metalness: 0.2 
-        });
-        
-        const mesh = new THREE.Mesh(geometry, material);
-        
         // Center and scale
-        geometry.computeBoundingBox();
-        const box = geometry.boundingBox!;
+        const box = new THREE.Box3().setFromObject(object);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         
-        // Move mesh so center is at 0,0,0
-        mesh.position.sub(center);
-        scene.add(mesh);
+        // Move object to center
+        object.position.sub(center);
+        scene.add(object);
 
         // Position camera to fit object
         const maxDim = Math.max(size.x, size.y, size.z);
@@ -71,8 +86,11 @@ export const generateThumbnail = async (file: File): Promise<string> => {
         const dataUrl = renderer.domElement.toDataURL('image/png');
         
         // Clean up
-        geometry.dispose();
-        material.dispose();
+        if (!is3MF) {
+             // Dispose geometry/material created manually for STL
+             (object as THREE.Mesh).geometry.dispose();
+             ((object as THREE.Mesh).material as THREE.Material).dispose();
+        }
         renderer.dispose();
 
         resolve(dataUrl);

@@ -2,6 +2,7 @@ import React, { Suspense, useLayoutEffect, useState, useRef, useEffect, useMemo,
 import { Canvas, useLoader } from '@react-three/fiber';
 import { OrbitControls, Stage, Grid, Center, Html } from '@react-three/drei';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import { Maximize, Minimize, FileWarning } from 'lucide-react';
 import * as THREE from 'three';
 
@@ -45,20 +46,62 @@ interface Viewer3DProps {
 }
 
 const Model = ({ url, filename, color = '#3b82f6', onLoaded }: Viewer3DProps) => {
-  // We only render STL models. STEP/3MF files are handled by the parent fallback.
-  const data = useLoader(STLLoader, url);
+  const is3MF = useMemo(() => filename.toLowerCase().endsWith('.3mf'), [filename]);
+  const Loader = is3MF ? ThreeMFLoader : STLLoader;
+
+  // Use the appropriate loader
+  const data = useLoader(Loader as any, url);
 
   const modelObject = useMemo(() => {
+    if (is3MF) {
+      return data as THREE.Group;
+    }
     return data as THREE.BufferGeometry;
-  }, [data]);
+  }, [data, is3MF]);
   
   useLayoutEffect(() => {
     const box = new THREE.Box3();
-    const geometry = modelObject as THREE.BufferGeometry;
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    if (geometry.boundingBox) {
-      box.copy(geometry.boundingBox);
+    
+    if (is3MF) {
+      const group = modelObject as THREE.Group;
+      
+      // Helper to optimize material for visibility
+      const optimizeMaterial = (mat: any) => {
+        mat.side = THREE.DoubleSide;
+        // Force white base color for better visibility as requested
+        if (mat.color) mat.color.set(0xffffff);
+        // Remove metalness to prevent dark reflections
+        if ('metalness' in mat) mat.metalness = 0;
+        // High roughness for matte, bright finish
+        if ('roughness' in mat) mat.roughness = 1.0;
+        // Slight emissive to lift deep shadows
+        if (mat.emissive) mat.emissive.set(0x101010);
+      };
+
+      // Ensure objects inside 3MF cast/receive shadows and have visible materials
+      group.traverse((child: any) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          
+          if (child.material) {
+             if (Array.isArray(child.material)) {
+               child.material.forEach(optimizeMaterial);
+             } else {
+               optimizeMaterial(child.material);
+             }
+          }
+        }
+      });
+      
+      box.setFromObject(group);
+    } else {
+      const geometry = modelObject as THREE.BufferGeometry;
+      geometry.computeVertexNormals();
+      geometry.computeBoundingBox();
+      if (geometry.boundingBox) {
+        box.copy(geometry.boundingBox);
+      }
     }
       
     if (onLoaded) {
@@ -66,7 +109,13 @@ const Model = ({ url, filename, color = '#3b82f6', onLoaded }: Viewer3DProps) =>
       box.getSize(size);
       onLoaded({ x: size.x, y: size.y, z: size.z });
     }
-  }, [modelObject, onLoaded]);
+  }, [modelObject, is3MF, onLoaded]);
+
+  if (is3MF) {
+    // 3MF files are typically Z-up. The Stage component often handles orientation well,
+    // but we return a primitive group here.
+    return <primitive object={modelObject} />;
+  }
 
   return (
     <mesh geometry={modelObject as THREE.BufferGeometry} castShadow receiveShadow>
@@ -83,7 +132,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
   const unsupportedFormat = useMemo(() => {
     const lower = filename.toLowerCase();
     if (lower.endsWith('.step') || lower.endsWith('.stp')) return 'STEP';
-    if (lower.endsWith('.3mf')) return '3MF';
+    // 3MF is now supported
     return null;
   }, [filename]);
 
@@ -133,8 +182,10 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
       className={`w-full h-full bg-gradient-to-br from-vault-800 to-vault-900 rounded-lg overflow-hidden relative group ${isFullscreen ? 'flex items-center justify-center' : ''}`}
     >
       <Canvas shadows camera={{ position: [0, 0, 15], fov: 50 }}>
+        {/* Ambient light for base visibility */}
+        <ambientLight intensity={0.8} />
         <Suspense fallback={<Html center><div className="text-white animate-pulse text-sm">Loading Model...</div></Html>}>
-          <Stage environment="city" intensity={0.6} adjustCamera>
+          <Stage environment="city" intensity={3} adjustCamera>
              <Center>
                <ErrorBoundary onError={() => setError(true)}>
                  <Model url={url} filename={filename} onLoaded={onLoaded} />

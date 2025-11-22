@@ -107,7 +107,8 @@ const App = () => {
     for (const file of files) {
       try {
         let thumbnail: string | undefined = undefined;
-        if (file.name.toLowerCase().endsWith('.stl')) {
+        const lowerName = file.name.toLowerCase();
+        if (lowerName.endsWith('.stl') || lowerName.endsWith('.3mf')) {
            try {
              thumbnail = await generateThumbnail(file);
            } catch (e) {
