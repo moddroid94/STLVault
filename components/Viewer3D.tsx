@@ -13,7 +13,7 @@ interface Viewer3DProps {
 }
 
 const Model = ({ url, filename, color = '#3b82f6', onLoaded }: Viewer3DProps) => {
-  // We only render STL models. STEP files are handled by the parent fallback.
+  // We only render STL models. STEP/3MF files are handled by the parent fallback.
   const data = useLoader(STLLoader, url);
 
   const modelObject = useMemo(() => {
@@ -48,10 +48,12 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const isStep = useMemo(() => 
-    filename.toLowerCase().endsWith('.step') || filename.toLowerCase().endsWith('.stp'), 
-    [filename]
-  );
+  const unsupportedFormat = useMemo(() => {
+    const lower = filename.toLowerCase();
+    if (lower.endsWith('.step') || lower.endsWith('.stp')) return 'STEP';
+    if (lower.endsWith('.3mf')) return '3MF';
+    return null;
+  }, [filename]);
 
   // Reset error when url changes
   useEffect(() => {
@@ -81,12 +83,12 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
 
   if (!url) return <div className="flex items-center justify-center h-full text-slate-500">No model selected</div>;
   
-  if (isStep) {
+  if (unsupportedFormat) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-vault-800 text-slate-400 p-6 text-center">
         <FileWarning className="w-12 h-12 mb-3 opacity-50" />
         <p className="font-medium">Preview not available</p>
-        <p className="text-xs mt-1 opacity-70">STEP files cannot be previewed in the browser directly. Please download to view.</p>
+        <p className="text-xs mt-1 opacity-70">{unsupportedFormat} files cannot be previewed in the browser directly. Please download to view.</p>
       </div>
     );
   }

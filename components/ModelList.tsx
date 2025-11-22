@@ -97,7 +97,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
           <div className="text-center">
             <CloudUpload className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-bounce" />
             <h2 className="text-2xl font-bold text-white">Drop 3D files here</h2>
-            <p className="text-blue-200 mt-2">Supported: STL, STEP</p>
+            <p className="text-blue-200 mt-2">Supported: STL, STEP, 3MF</p>
           </div>
         </div>
       )}
@@ -126,7 +126,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
               ref={fileInputRef} 
               onChange={handleFileSelect} 
               className="hidden" 
-              accept=".stl,.step,.stp"
+              accept=".stl,.step,.stp,.3mf"
               multiple
             />
           </div>
