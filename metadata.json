@@ -1,0 +1,5 @@
+{
+  "name": "STLVault",
+  "description": "A centralized 3D model organizer with drag-and-drop upload, an integrated 3D viewer, and AI-powered auto-tagging using Gemini.",
+  "requestFramePermissions": []
+}
