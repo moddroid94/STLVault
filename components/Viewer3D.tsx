@@ -1,45 +1,62 @@
-import React, { Suspense, useLayoutEffect, useState, useRef, useEffect } from 'react';
+import React, { Suspense, useLayoutEffect, useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
 import { OrbitControls, Stage, Grid, Center, Html } from '@react-three/drei';
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
-import { Maximize, Minimize } from 'lucide-react';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { Maximize, Minimize, FileWarning } from 'lucide-react';
 import * as THREE from 'three';
 
 interface Viewer3DProps {
   url: string;
+  filename: string;
   color?: string;
   onLoaded?: (dimensions: { x: number; y: number; z: number }) => void;
 }
 
-const Model = ({ url, color = '#3b82f6', onLoaded }: Viewer3DProps) => {
-  // Use generic for useLoader to define the return type as BufferGeometry
-  const geometry = useLoader(STLLoader, url) as THREE.BufferGeometry;
+const Model = ({ url, filename, color = '#3b82f6', onLoaded }: Viewer3DProps) => {
+  // We only render STL models. STEP files are handled by the parent fallback.
+  const data = useLoader(STLLoader, url);
+
+  const modelObject = useMemo(() => {
+    return data as THREE.BufferGeometry;
+  }, [data]);
   
   useLayoutEffect(() => {
-    if (geometry) {
-      geometry.computeVertexNormals();
-      geometry.center();
-      geometry.computeBoundingBox();
-      
-      if (geometry.boundingBox && onLoaded) {
-        const size = new THREE.Vector3();
-        geometry.boundingBox.getSize(size);
-        onLoaded({ x: size.x, y: size.y, z: size.z });
-      }
+    const box = new THREE.Box3();
+    const geometry = modelObject as THREE.BufferGeometry;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    if (geometry.boundingBox) {
+      box.copy(geometry.boundingBox);
     }
-  }, [geometry, onLoaded]);
+      
+    if (onLoaded) {
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      onLoaded({ x: size.x, y: size.y, z: size.z });
+    }
+  }, [modelObject, onLoaded]);
 
   return (
-    <mesh geometry={geometry} castShadow receiveShadow>
+    <mesh geometry={modelObject as THREE.BufferGeometry} castShadow receiveShadow>
       <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
     </mesh>
   );
 };
 
-const Viewer3D: React.FC<Viewer3DProps> = ({ url, onLoaded }) => {
+const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
   const [error, setError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const isStep = useMemo(() => 
+    filename.toLowerCase().endsWith('.step') || filename.toLowerCase().endsWith('.stp'), 
+    [filename]
+  );
+
+  // Reset error when url changes
+  useEffect(() => {
+    setError(false);
+  }, [url]);
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -63,6 +80,17 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, onLoaded }) => {
   }, []);
 
   if (!url) return <div className="flex items-center justify-center h-full text-slate-500">No model selected</div>;
+  
+  if (isStep) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-vault-800 text-slate-400 p-6 text-center">
+        <FileWarning className="w-12 h-12 mb-3 opacity-50" />
+        <p className="font-medium">Preview not available</p>
+        <p className="text-xs mt-1 opacity-70">STEP files cannot be previewed in the browser directly. Please download to view.</p>
+      </div>
+    );
+  }
+
   if (error) return <div className="flex items-center justify-center h-full text-red-400">Error loading model</div>;
 
   return (
@@ -71,11 +99,11 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, onLoaded }) => {
       className={`w-full h-full bg-gradient-to-br from-vault-800 to-vault-900 rounded-lg overflow-hidden relative group ${isFullscreen ? 'flex items-center justify-center' : ''}`}
     >
       <Canvas shadows camera={{ position: [0, 0, 15], fov: 50 }}>
-        <Suspense fallback={<Html center><div className="text-white animate-pulse">Loading Model...</div></Html>}>
+        <Suspense fallback={<Html center><div className="text-white animate-pulse text-sm">Loading Model...</div></Html>}>
           <Stage environment="city" intensity={0.6} adjustCamera>
              <Center>
                <ErrorBoundary onError={() => setError(true)}>
-                 <Model url={url} onLoaded={onLoaded} />
+                 <Model url={url} filename={filename} onLoaded={onLoaded} />
                </ErrorBoundary>
              </Center>
           </Stage>

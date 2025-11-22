@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, FileBox, Calendar, Tag, MoreVertical } from 'lucide-react';
+import { CloudUpload, FileBox, Calendar, Tag, MoreVertical } from 'lucide-react';
 import { STLModel } from '../types';
 
 interface ModelListProps {
@@ -47,8 +47,9 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
       {isDragging && (
         <div className="absolute inset-0 bg-blue-600/20 border-4 border-dashed border-blue-500 z-50 flex items-center justify-center backdrop-blur-sm m-4 rounded-xl">
           <div className="text-center">
-            <UploadCloud className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-bounce" />
-            <h2 className="text-2xl font-bold text-white">Drop STL files here</h2>
+            <CloudUpload className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-bounce" />
+            <h2 className="text-2xl font-bold text-white">Drop 3D files here</h2>
+            <p className="text-blue-200 mt-2">Supported: STL, STEP</p>
           </div>
         </div>
       )}
@@ -63,15 +64,15 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
           onClick={() => fileInputRef.current?.click()}
           className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
         >
-          <UploadCloud className="w-4 h-4" />
-          Upload STL
+          <CloudUpload className="w-4 h-4" />
+          Upload Model
         </button>
         <input 
           type="file" 
           ref={fileInputRef} 
           onChange={handleFileSelect} 
           className="hidden" 
-          accept=".stl"
+          accept=".stl,.step,.stp"
           multiple
         />
       </div>
@@ -81,7 +82,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
         <div className="flex flex-col items-center justify-center h-[60vh] text-slate-500 border-2 border-dashed border-vault-700 rounded-xl">
           <FileBox className="w-16 h-16 mb-4 opacity-50" />
           <p className="text-lg">This folder is empty</p>
-          <p className="text-sm">Drag and drop STL files to upload</p>
+          <p className="text-sm">Drag and drop STL or STEP files to upload</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -94,7 +95,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
               }`}
             >
               <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
-                 {/* Placeholder preview for grid, in real app could be a thumbnail rendered from Three.js */}
+                 {/* Placeholder preview for grid */}
                  <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
                  <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
                  
@@ -105,6 +106,13 @@ const ModelList: React.FC<ModelListProps> = ({ models, onUpload, onSelectModel, 
                             {tag}
                         </span>
                     ))}
+                 </div>
+                 
+                 {/* File Type Badge */}
+                 <div className="absolute bottom-2 left-2">
+                    <span className="text-[10px] bg-blue-600/80 text-white px-1.5 py-0.5 rounded uppercase font-bold">
+                      {model.name.split('.').pop()}
+                    </span>
                  </div>
               </div>
 

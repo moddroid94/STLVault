@@ -19,7 +19,7 @@ export const generateMetadataForFile = async (filename: string): Promise<{ tags:
   }
 
   try {
-    const prompt = `Analyze the filename "${filename}" of a 3D printable STL model. 
+    const prompt = `Analyze the filename "${filename}" of a 3D model (STL/STEP). 
     Generate 5-8 relevant SEO tags and a short, 2-sentence description describing what this object likely is.
     Return JSON.`;
 
