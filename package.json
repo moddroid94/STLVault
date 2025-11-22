@@ -16,7 +16,8 @@
     "@react-three/drei": "^10.7.7",
     "three": "^0.181.2",
     "lucide-react": "^0.554.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

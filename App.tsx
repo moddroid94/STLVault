@@ -6,7 +6,8 @@ import DetailPanel from './components/DetailPanel';
 import { STLModel, Folder } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
-import { FolderInput, Tags, X, Trash2, AlertTriangle } from 'lucide-react';
+import { FolderInput, Tags, X, Trash2, AlertTriangle, Download } from 'lucide-react';
+import JSZip from 'jszip';
 
 const App = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -216,6 +217,50 @@ const App = () => {
       }
   };
 
+  const handleBulkDownload = async () => {
+    setIsLoading(true);
+    try {
+      const zip = new JSZip();
+      const selectedModels = models.filter(m => selectedIds.has(m.id));
+      
+      // Add files to zip
+      const filePromises = selectedModels.map(async (model) => {
+        try {
+          const url = api.getDownloadUrl(model);
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`Failed to fetch ${model.name}`);
+          const blob = await response.blob();
+          zip.file(model.name, blob);
+        } catch (err) {
+          console.error(`Error downloading ${model.name} for zip:`, err);
+        }
+      });
+
+      await Promise.all(filePromises);
+
+      // Generate zip
+      const content = await zip.generateAsync({ type: 'blob' });
+      const saveUrl = URL.createObjectURL(content);
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = saveUrl;
+      link.download = `stlvault-batch-${new Date().getTime()}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(saveUrl);
+      
+      // Clear selection
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error("Bulk download failed:", error);
+      alert("Failed to generate zip file.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30">
       <Sidebar 
@@ -234,7 +279,10 @@ const App = () => {
       <main className="flex-1 flex overflow-hidden relative">
         {isLoading ? (
            <div className="absolute inset-0 flex items-center justify-center bg-vault-900 z-50">
-             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+             <div className="flex flex-col items-center gap-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                <p className="text-slate-400 animate-pulse">Processing...</p>
+             </div>
            </div>
         ) : (
           <ModelList 
@@ -300,6 +348,15 @@ const App = () => {
                 >
                     <Tags className="w-4 h-4" />
                     <span className="text-sm font-medium hidden sm:inline">Tag</span>
+                </button>
+
+                <button 
+                    onClick={handleBulkDownload}
+                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-green-400 transition-colors flex items-center gap-2"
+                    title="Download Selected"
+                >
+                    <Download className="w-4 h-4" />
+                    <span className="text-sm font-medium hidden sm:inline">Download</span>
                 </button>
                 
                 <button 
