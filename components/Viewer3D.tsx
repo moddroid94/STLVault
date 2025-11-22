@@ -65,32 +65,26 @@ const Model = ({ url, filename, color = '#3b82f6', onLoaded }: Viewer3DProps) =>
     if (is3MF) {
       const group = modelObject as THREE.Group;
       
-      // Helper to optimize material for visibility
-      const optimizeMaterial = (mat: any) => {
-        mat.side = THREE.DoubleSide;
-        // Force white base color for better visibility as requested
-        if (mat.color) mat.color.set(0xffffff);
-        // Remove metalness to prevent dark reflections
-        if ('metalness' in mat) mat.metalness = 0;
-        // High roughness for matte, bright finish
-        if ('roughness' in mat) mat.roughness = 1.0;
-        // Slight emissive to lift deep shadows
-        if (mat.emissive) mat.emissive.set(0x101010);
-      };
-
-      // Ensure objects inside 3MF cast/receive shadows and have visible materials
+      // 3MF Fix: Replaces materials with MeshStandardMaterial to ensure shading works.
+      // Some 3MF files import with MeshBasicMaterial (flat) or missing normals.
       group.traverse((child: any) => {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
           
-          if (child.material) {
-             if (Array.isArray(child.material)) {
-               child.material.forEach(optimizeMaterial);
-             } else {
-               optimizeMaterial(child.material);
-             }
+          // 1. Ensure normals exist for shading calculations
+          if (child.geometry) {
+             child.geometry.computeVertexNormals();
           }
+
+          // 2. Replace material with a Standard material that reacts to light
+          // We use a fresh material to guarantee consistency
+          child.material = new THREE.MeshStandardMaterial({
+             color: 0xffffff,   // White base as requested
+             roughness: 0.45,   // Lower roughness to allow highlights (defines shape better)
+             metalness: 0.1,    // Slight metalness for realistic falloff
+             side: THREE.DoubleSide
+          });
         }
       });
       
@@ -182,10 +176,10 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ url, filename, onLoaded }) => {
       className={`w-full h-full bg-gradient-to-br from-vault-800 to-vault-900 rounded-lg overflow-hidden relative group ${isFullscreen ? 'flex items-center justify-center' : ''}`}
     >
       <Canvas shadows camera={{ position: [0, 0, 15], fov: 50 }}>
-        {/* Ambient light for base visibility */}
-        <ambientLight intensity={0.8} />
+        {/* Reduced ambient light to allow the Stage directional lighting to create contrast/shadows */}
+        <ambientLight intensity={0.4} />
         <Suspense fallback={<Html center><div className="text-white animate-pulse text-sm">Loading Model...</div></Html>}>
-          <Stage environment="city" intensity={3} adjustCamera>
+          <Stage environment="city" intensity={1} adjustCamera>
              <Center>
                <ErrorBoundary onError={() => setError(true)}>
                  <Model url={url} filename={filename} onLoaded={onLoaded} />
