@@ -343,5 +343,39 @@ export const api = {
     });
     if (!res.ok) throw new Error('Import failed');
     return res.json();
+  },
+
+  // 14. REPLACE FILE
+  replaceModelFile: async (id: string, file: File, thumbnail?: string): Promise<STLModel> => {
+    if (USE_MOCK_API) {
+      await new Promise(r => setTimeout(r, 1000));
+      const store = getMockStore();
+      const index = store.models.findIndex((m: STLModel) => m.id === id);
+      if (index === -1) throw new Error('Model not found');
+      
+      // Create new URL
+      const fakeUrl = URL.createObjectURL(file);
+      
+      const updatedModel = {
+          ...store.models[index],
+          url: fakeUrl,
+          size: file.size,
+          thumbnail: thumbnail || store.models[index].thumbnail // Update thumbnail if provided
+      };
+      store.models[index] = updatedModel;
+      saveMockStore(store);
+      return updatedModel;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (thumbnail) formData.append('thumbnail', thumbnail);
+
+    const res = await fetch(`${API_BASE_URL}/models/${id}/file`, {
+      method: 'PUT',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('File replacement failed');
+    return res.json();
   }
 };

@@ -1,9 +1,10 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { STLModel } from '../types';
 import Viewer3D from './Viewer3D';
-import { X, Download, Tag as TagIcon, Sparkles, Save, Edit, Trash2, Calendar, HardDrive } from 'lucide-react';
+import { X, Download, Tag as TagIcon, Sparkles, Save, Edit, Trash2, Calendar, HardDrive, FileUp, RefreshCw } from 'lucide-react';
 import { generateMetadataForFile } from '../services/geminiService';
+import { generateThumbnail } from '../services/thumbnailGenerator';
 import { api } from '../services/api';
 
 interface DetailPanelProps {
@@ -15,10 +16,13 @@ interface DetailPanelProps {
 
 const DetailPanel: React.FC<DetailPanelProps> = ({ model, onClose, onUpdate, onDelete }) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editTags, setEditTags] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset local state when model changes
   React.useEffect(() => {
@@ -57,6 +61,36 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ model, onClose, onUpdate, onD
       console.error("Auto-tag failed", e);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleReplaceFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !model) return;
+    
+    setIsReplacing(true);
+    try {
+        // Generate thumbnail
+        let thumb: string | undefined;
+        try {
+            thumb = await generateThumbnail(file);
+        } catch(err) {
+            console.warn("Thumbnail failed", err);
+        }
+
+        const updated = await api.replaceModelFile(model.id, file, thumb);
+        onUpdate(model.id, {
+            url: updated.url,
+            size: updated.size,
+            thumbnail: updated.thumbnail
+        });
+        // Note: The name and other metadata are preserved unless the user explicitly changes them in the text fields
+    } catch(e) {
+        console.error("Failed to replace", e);
+        alert("Failed to replace file");
+    } finally {
+        setIsReplacing(false);
+        if(fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -139,6 +173,31 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ model, onClose, onUpdate, onD
                     </p>
                 </div>
              </div>
+            
+             {/* File Replacement Section (Edit Mode Only) */}
+             {isEditing && (
+                 <div className="pb-3 border-b border-vault-700 mb-3">
+                     <span className="text-xs text-slate-500 block mb-1">Source File</span>
+                     <div className="flex items-center gap-2">
+                         <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isReplacing}
+                            className="flex items-center gap-2 bg-vault-800 border border-vault-600 hover:bg-vault-700 text-slate-300 px-3 py-2 rounded-md text-xs font-medium transition-colors w-full justify-center"
+                         >
+                            {isReplacing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <FileUp className="w-3 h-3" />}
+                            {isReplacing ? "Uploading..." : "Replace 3D Model File"}
+                         </button>
+                         <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept=".stl,.step,.stp,.3mf"
+                            onChange={handleReplaceFile}
+                         />
+                     </div>
+                     <p className="text-[10px] text-slate-500 mt-1 text-center">Replaces geometry but keeps name/desc unless changed.</p>
+                 </div>
+             )}
 
              <div>
                 <span className="text-xs text-slate-500 block mb-1">Filename</span>
