@@ -75,7 +75,10 @@ const ModelList: React.FC<ModelListProps> = ({
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    // Only show drag overlay if dragging files, not elements
+    if (e.dataTransfer.types.includes('Files')) {
+        setIsDragging(true);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -108,6 +111,18 @@ const ModelList: React.FC<ModelListProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       onUpload(e.target.files);
     }
+  };
+  
+  const handleCardDragStart = (e: React.DragEvent, modelId: string) => {
+    // If the user drags a card, we initiate a move operation
+    const idsToMove = selectedIds.has(modelId) ? Array.from(selectedIds) : [modelId];
+    
+    e.dataTransfer.setData('application/json', JSON.stringify({ modelIds: idsToMove }));
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Optionally set a drag image (ghost)
+    // const el = e.target as HTMLElement;
+    // e.dataTransfer.setDragImage(el, 0, 0);
   };
 
   const selectionMode = selectedIds.size > 0;
@@ -225,6 +240,8 @@ const ModelList: React.FC<ModelListProps> = ({
             return (
               <div
                 key={model.id}
+                draggable={true}
+                onDragStart={(e) => handleCardDragStart(e, model.id)}
                 style={{ zIndex: isMenuOpen ? 20 : 'auto' }}
                 onClick={() => {
                     if (selectionMode) {
@@ -233,7 +250,7 @@ const ModelList: React.FC<ModelListProps> = ({
                         onSelectModel(model);
                     }
                 }}
-                className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative ${
+                className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing ${
                   isSelected || selectedModelId === model.id ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-vault-700 hover:border-vault-600'
                 }`}
               >
@@ -249,7 +266,7 @@ const ModelList: React.FC<ModelListProps> = ({
                      {isSelected ? <CheckSquare className="w-5 h-5 text-blue-500" /> : <Square className="w-5 h-5 text-slate-400 hover:text-white" />}
                 </div>
 
-                <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
+                <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden pointer-events-none">
                    {/* Thumbnail or Placeholder */}
                    {model.thumbnail ? (
                       <img 

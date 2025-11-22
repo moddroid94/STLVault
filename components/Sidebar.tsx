@@ -11,6 +11,8 @@ interface SidebarProps {
   onCreateFolder: (name: string) => void;
   onRenameFolder: (id: string, newName: string) => void;
   onDeleteFolder: (id: string) => void;
+  onMoveToFolder: (folderId: string, modelIds: string[]) => void;
+  onUploadToFolder: (folderId: string, files: FileList) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -20,7 +22,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectFolder, 
   onCreateFolder,
   onRenameFolder,
-  onDeleteFolder 
+  onDeleteFolder,
+  onMoveToFolder,
+  onUploadToFolder
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -28,6 +32,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Renaming State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+
+  // Drag and Drop State
+  const [dragTargetId, setDragTargetId] = useState<string | null>(null);
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -77,6 +84,48 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     
     onDeleteFolder(folderId);
+  };
+
+  // Drag Handlers
+  const handleDragOver = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragTargetId !== folderId) {
+      setDragTargetId(folderId);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Check if we are just moving to a child element
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragTargetId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragTargetId(null);
+    
+    // Check for Files first (Upload to folder)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onUploadToFolder(folderId, e.dataTransfer.files);
+      return;
+    }
+
+    // Check for internal move (Move existing cards to folder)
+    try {
+      const data = e.dataTransfer.getData('application/json');
+      if (data) {
+        const { modelIds } = JSON.parse(data);
+        if (Array.isArray(modelIds) && modelIds.length > 0) {
+          onMoveToFolder(folderId, modelIds);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to process drop", err);
+    }
   };
 
   return (
@@ -131,6 +180,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {folders.map(folder => {
           const count = folderCounts[folder.id] || 0;
           const isEditing = editingId === folder.id;
+          const isDropTarget = dragTargetId === folder.id;
 
           return (
             <div key={folder.id} className="relative group">
@@ -152,20 +202,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </form>
               ) : (
                 <div
-                  className={`w-full flex items-center rounded-md transition-colors group/item relative ${
-                    currentFolderId === folder.id ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-vault-800 hover:text-slate-200'
+                  className={`w-full flex items-center rounded-md transition-all duration-200 group/item relative ${
+                    isDropTarget 
+                      ? 'bg-blue-600/40 text-blue-200 ring-1 ring-blue-400 scale-[1.02]' 
+                      : currentFolderId === folder.id 
+                        ? 'bg-blue-600/20 text-blue-400' 
+                        : 'text-slate-400 hover:bg-vault-800 hover:text-slate-200'
                   }`}
+                  onDragOver={(e) => handleDragOver(e, folder.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, folder.id)}
                 >
                   {/* Clickable selection area */}
                   <div 
                     className="flex-1 flex items-center gap-3 px-3 py-2 cursor-pointer min-w-0"
                     onClick={() => onSelectFolder(folder.id)}
                   >
-                    <FolderIcon className="w-4 h-4 shrink-0" />
-                    <span className="text-sm font-medium truncate select-none">{folder.name}</span>
+                    <FolderIcon className={`w-4 h-4 shrink-0 ${isDropTarget ? 'animate-bounce' : ''}`} />
+                    <span className="text-sm font-medium truncate select-none pointer-events-none">{folder.name}</span>
                   </div>
                   
-                  {/* Hover Actions - z-10 ensures it's above selection area if overlapping occurs, though flex avoids it */}
+                  {/* Hover Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity px-1 relative z-10">
                     <button 
                       type="button"
@@ -193,7 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className="px-3 py-2 cursor-pointer"
                     onClick={() => onSelectFolder(folder.id)}
                   >
-                    <span className={`text-xs ${currentFolderId === folder.id ? 'text-blue-500' : 'text-slate-600'} w-6 text-right block`}>{count}</span>
+                    <span className={`text-xs ${currentFolderId === folder.id ? 'text-blue-500' : 'text-slate-600'} w-6 text-right block pointer-events-none`}>{count}</span>
                   </div>
                 </div>
               )}

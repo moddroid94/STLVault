@@ -89,10 +89,13 @@ const App = () => {
     setDeleteConfirmState({ isOpen: true, type: 'folder', id });
   };
 
-  const handleUpload = async (fileList: FileList) => {
+  const handleUpload = async (fileList: FileList, specificFolderId?: string) => {
     const files = Array.from(fileList);
     setUploadQueue(prev => prev + files.length);
     
+    // Determine target folder: Use specific if provided, otherwise current, defaulting to first available if 'all'
+    const targetFolderId = specificFolderId || (currentFolderId === 'all' && folders.length > 0 ? folders[0].id : currentFolderId);
+
     for (const file of files) {
       try {
         let thumbnail: string | undefined = undefined;
@@ -104,7 +107,6 @@ const App = () => {
            }
         }
 
-        const targetFolderId = currentFolderId === 'all' && folders.length > 0 ? folders[0].id : currentFolderId;
         const newModel = await api.uploadModel(file, targetFolderId, thumbnail);
         
         setModels(prev => [newModel, ...prev]);
@@ -198,6 +200,16 @@ const App = () => {
      }
   };
 
+  const handleDropMove = async (targetFolderId: string, modelIds: string[]) => {
+      try {
+        await api.bulkMoveModels(modelIds, targetFolderId);
+        setModels(prev => prev.map(m => modelIds.includes(m.id) ? { ...m, folderId: targetFolderId } : m));
+        setSelectedIds(new Set());
+      } catch (e) {
+          console.error("Drop move failed", e);
+      }
+  };
+
   const handleBulkTagSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       try {
@@ -274,6 +286,8 @@ const App = () => {
         onCreateFolder={handleCreateFolder}
         onRenameFolder={handleRenameFolder}
         onDeleteFolder={handleDeleteFolder}
+        onMoveToFolder={handleDropMove}
+        onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
       />
       
       <main className="flex-1 flex overflow-hidden relative">
@@ -287,7 +301,7 @@ const App = () => {
         ) : (
           <ModelList 
             models={filteredModels} 
-            onUpload={handleUpload}
+            onUpload={(files) => handleUpload(files)}
             onSelectModel={(m) => setSelectedModelId(m.id)}
             onDelete={handleDeleteModel}
             selectedModelId={selectedModelId}
