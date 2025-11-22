@@ -1,4 +1,4 @@
-import React, { Suspense, useLayoutEffect, useState, useRef, useEffect, useMemo, Component, ReactNode } from 'react';
+import React, { Component, Suspense, useLayoutEffect, useState, useRef, useEffect, useMemo, ReactNode } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
 import { OrbitControls, Stage, Grid, Center, Html } from '@react-three/drei';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 // Defined before usage to ensure proper type resolution
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  children?: ReactNode;
   onError: () => void;
 }
 

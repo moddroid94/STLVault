@@ -326,8 +326,9 @@ const ModelList: React.FC<ModelListProps> = ({
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setActiveMenuModelId(null);
+                                    // Call delete FIRST to ensure propagation isn't cut off by component unmounting if list updates
                                     onDelete(model.id);
+                                    setActiveMenuModelId(null);
                                 }}
                                 className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center gap-2"
                             >

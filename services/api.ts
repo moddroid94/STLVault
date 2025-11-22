@@ -8,8 +8,20 @@ const API_BASE_URL = '/api';
 
 // Mock Data Store (for demonstration without a real backend)
 const getMockStore = () => {
-  const stored = localStorage.getItem('stl-vault-store');
-  if (stored) return JSON.parse(stored);
+  try {
+    const stored = localStorage.getItem('stl-vault-store');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Ensure structure integrity
+      if (!parsed.folders) parsed.folders = [];
+      if (!parsed.models) parsed.models = [];
+      return parsed;
+    }
+  } catch (e) {
+    console.error("Failed to parse mock store", e);
+  }
+  
+  // Default initial state
   return {
     folders: [
       { id: '1', name: 'Characters' },
@@ -21,7 +33,11 @@ const getMockStore = () => {
 };
 
 const saveMockStore = (data: any) => {
-  localStorage.setItem('stl-vault-store', JSON.stringify(data));
+  try {
+    localStorage.setItem('stl-vault-store', JSON.stringify(data));
+  } catch (e) {
+    console.error("Failed to save mock store", e);
+  }
 };
 
 // --- API SERVICE ---
@@ -182,10 +198,17 @@ export const api = {
 
   // 8. DELETE Model
   deleteModel: async (id: string): Promise<void> => {
+    console.log("API: Deleting model", id);
     if (USE_MOCK_API) {
       await new Promise(r => setTimeout(r, 300));
       const store = getMockStore();
+      const initialCount = store.models.length;
       store.models = store.models.filter((m: STLModel) => m.id !== id);
+      
+      if (store.models.length === initialCount) {
+        console.warn("API: Model ID not found in store during delete", id);
+      }
+      
       saveMockStore(store);
       return;
     }
@@ -204,6 +227,7 @@ export const api = {
 
   // 10. BULK DELETE
   bulkDeleteModels: async (ids: string[]): Promise<void> => {
+    console.log("API: Bulk deleting models", ids);
     if (USE_MOCK_API) {
       await new Promise(r => setTimeout(r, 400));
       const store = getMockStore();
