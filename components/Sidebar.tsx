@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { Folder as FolderIcon, Plus, Box, LayoutGrid, Pencil, Trash2, Check, X } from 'lucide-react';
-import { Folder, STLModel } from '../types';
+import { Folder, STLModel, StorageStats } from '../types';
 
 interface SidebarProps {
   folders: Folder[];
   models: STLModel[];
   currentFolderId: string;
+  storageStats: StorageStats;
   onSelectFolder: (id: string) => void;
   onCreateFolder: (name: string) => void;
   onRenameFolder: (id: string, newName: string) => void;
@@ -18,7 +19,8 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ 
   folders, 
   models,
-  currentFolderId, 
+  currentFolderId,
+  storageStats,
   onSelectFolder, 
   onCreateFolder,
   onRenameFolder,
@@ -127,6 +129,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       console.error("Failed to process drop", err);
     }
   };
+
+  // Format Storage Display
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const percentUsed = storageStats.total > 0 
+    ? Math.min((storageStats.used / storageStats.total) * 100, 100) 
+    : 0;
 
   return (
     <div className="w-64 bg-vault-900 border-r border-vault-700 flex flex-col h-full">
@@ -262,10 +277,16 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 border-t border-vault-700">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-3">
           <p className="text-xs text-white/80 font-medium mb-1">Storage Used</p>
-          <div className="w-full bg-black/20 rounded-full h-1.5 mb-2">
-            <div className="bg-white w-[45%] h-full rounded-full"></div>
+          <div className="w-full bg-black/20 rounded-full h-1.5 mb-2 overflow-hidden">
+            <div 
+              className="bg-white h-full rounded-full transition-all duration-500 ease-out" 
+              style={{ width: `${percentUsed}%` }}
+            ></div>
           </div>
-          <p className="text-[10px] text-white/60">1.2GB / 5GB</p>
+          <p className="text-[10px] text-white/60 flex justify-between">
+             <span>{formatSize(storageStats.used)}</span>
+             <span>{formatSize(storageStats.total)}</span>
+          </p>
         </div>
       </div>
     </div>

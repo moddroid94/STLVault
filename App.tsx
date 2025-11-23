@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ModelList from './components/ModelList';
 import DetailPanel from './components/DetailPanel';
-import { STLModel, Folder } from './types';
+import { STLModel, Folder, StorageStats } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
 import { FolderInput, Tags, X, Trash2, AlertTriangle, Download, FileUp, Globe } from 'lucide-react';
@@ -12,6 +12,8 @@ import JSZip from 'jszip';
 const App = () => {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [models, setModels] = useState<STLModel[]>([]);
+  const [storageStats, setStorageStats] = useState<StorageStats>({ used: 0, total: 0 });
+  
   const [currentFolderId, setCurrentFolderId] = useState<string>('all');
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,12 +48,14 @@ const App = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [fetchedFolders, fetchedModels] = await Promise.all([
+        const [fetchedFolders, fetchedModels, fetchedStats] = await Promise.all([
           api.getFolders(),
-          api.getModels('all') // Fetch all initially
+          api.getModels('all'),
+          api.getStorageStats()
         ]);
         setFolders(fetchedFolders);
         setModels(fetchedModels);
+        setStorageStats(fetchedStats);
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
       } finally {
@@ -60,6 +64,13 @@ const App = () => {
     };
     fetchData();
   }, []);
+
+  // Refresh storage stats when models change (upload, delete, replace)
+  useEffect(() => {
+    api.getStorageStats()
+      .then(setStorageStats)
+      .catch(e => console.error("Failed to refresh storage stats", e));
+  }, [models]);
 
   // Filter models based on selection
   const filteredModels = currentFolderId === 'all' 
@@ -345,6 +356,7 @@ const App = () => {
         folders={folders} 
         models={models}
         currentFolderId={currentFolderId}
+        storageStats={storageStats}
         onSelectFolder={(id) => {
             setCurrentFolderId(id);
             setSelectedModelId(null);

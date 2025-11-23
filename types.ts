@@ -1,3 +1,4 @@
+
 export interface Folder {
   id: string;
   name: string;
@@ -15,6 +16,11 @@ export interface STLModel {
   description: string;
   dimensions?: { x: number; y: number; z: number };
   thumbnail?: string;
+}
+
+export interface StorageStats {
+  used: number;
+  total: number;
 }
 
 export enum ViewMode {

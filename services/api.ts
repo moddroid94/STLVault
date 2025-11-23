@@ -1,5 +1,5 @@
 
-import { Folder, STLModel } from '../types';
+import { Folder, STLModel, StorageStats } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Set this to FALSE to use a real backend server
@@ -376,6 +376,22 @@ export const api = {
       body: formData,
     });
     if (!res.ok) throw new Error('File replacement failed');
+    return res.json();
+  },
+
+  // 15. GET Storage Stats
+  getStorageStats: async (): Promise<StorageStats> => {
+    if (USE_MOCK_API) {
+        await new Promise(r => setTimeout(r, 200));
+        const store = getMockStore();
+        const used = store.models.reduce((acc: number, m: STLModel) => acc + m.size, 0);
+        return {
+            used,
+            total: 5 * 1024 * 1024 * 1024 // 5GB Hard limit for mock
+        };
+    }
+    const res = await fetch(`${API_BASE_URL}/storage-stats`);
+    if (!res.ok) throw new Error('Failed to fetch storage stats');
     return res.json();
   }
 };
