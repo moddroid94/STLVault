@@ -3,7 +3,7 @@ import { Folder, STLModel, StorageStats } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Set this to FALSE to use a real backend server
-const USE_MOCK_API = true;
+const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 const API_BASE_URL = '/api';
 
 // Mock Data Store (for demonstration without a real backend)

@@ -6,20 +6,6 @@ import sqlite3
 import json
 from typing import Optional, List, Dict, Any
 
-import requests
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-DB_PATH = os.path.join(BASE_DIR, "data.db")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-app = FastAPI()
-
-# Allow all origins for local dev. Adjust in production.
-app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
