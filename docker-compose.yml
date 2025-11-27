@@ -6,7 +6,7 @@ services:
     pull_policy: build
     environment:
       - FILE_STORAGE=/app/uploads
-      - DB_PATH=sqlite:///./data.db
+      - DB_PATH=data.db
     ports:
       - "8080:8988"
     volumes:
