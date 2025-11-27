@@ -50,7 +50,7 @@ const Model = ({ url, filename, color = '#3b82f6', onLoaded }: Viewer3DProps) =>
   const Loader = is3MF ? ThreeMFLoader : STLLoader;
 
   // Use the appropriate loader
-  urlpath = "http://192.168.178.21:8988" + url
+  const urlpath = "http://192.168.178.21:8988" + url
   const data = useLoader(Loader as any, urlpath);
 
   const modelObject = useMemo(() => {
