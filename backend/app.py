@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 import json
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any,
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
