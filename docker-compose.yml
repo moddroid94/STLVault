@@ -1,7 +1,8 @@
 
 services:
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
     pull_policy: build
     environment:
       - FILE_STORAGE=/app/uploads
@@ -15,7 +16,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     pull_policy: build
     volumes:
       - node_modules:/app/www/node_modules
