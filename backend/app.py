@@ -428,8 +428,3 @@ def storage_stats():
         used += os.path.getsize(os.path.join(UPLOAD_DIR, fname))
     total = 5 * 1024 * 1024 * 1024
     return {"used": used, "total": total}
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
