@@ -6,7 +6,7 @@ services:
       - FILE_STORAGE=/app/uploads
       - DB_PATH=sqlite:///./data.db
     ports:
-      - "8000:8000"
+      - "8000:8989"
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/data:/app/data
