@@ -3,13 +3,22 @@ import uuid
 import time
 import shutil
 import sqlite3
-from fastapi import BackgroundTasks, Depends, FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    UploadFile,
+    File,
+    Form,
+    HTTPException,
+    Query,
+)
 from fastapi.responses import FileResponse
 from starlette.middleware.cors import CORSMiddleware
 import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-
+from pydantic import BaseModel
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
@@ -22,6 +31,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 def get_db_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -110,6 +121,11 @@ def save_upload_file(upload_file: UploadFile, dest_path: str) -> int:
     return size
 
 
+class FolderData(BaseModel):
+    name: str
+    parentId: str | None
+
+
 # --- Folder endpoints ---
 @app.get("/api/folders")
 def get_folders():
@@ -122,14 +138,17 @@ def get_folders():
 
 
 @app.post("/api/folders")
-def create_folder(name: str, parentId: Optional[str] = None):
+def create_folder(folder=FolderData):
     fid = str(uuid.uuid4())
     conn = get_db_conn()
     cur = conn.cursor()
-    cur.execute("INSERT INTO folders(id,name,parentId) VALUES (?,?,?)", (fid, name, parentId))
+    cur.execute(
+        "INSERT INTO folders(id,name,parentId) VALUES (?,?,?)",
+        (fid, folder.name, folder.parentId),
+    )
     conn.commit()
     conn.close()
-    return {"id": fid, "name": name, "parentId": parentId}
+    return {"id": fid, "name": folder.name, "parentId": folder.parentId}
 
 
 @app.patch("/api/folders/{folder_id}")
@@ -180,7 +199,12 @@ def get_models(folderId: Optional[str] = None):
 
 
 @app.post("/api/models/upload")
-def upload_model(file: UploadFile = File(...), folderId: str = Form("1"), thumbnail: Optional[str] = Form(None), tags: Optional[str] = Form(None)):
+def upload_model(
+    file: UploadFile = File(...),
+    folderId: str = Form("1"),
+    thumbnail: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+):
     mid = str(uuid.uuid4())
     ext = os.path.splitext(file.filename)[1] or ".stl"
     filename = f"{mid}{ext}"
@@ -284,7 +308,11 @@ def download_model(model_id: str):
     # Find file matching id
     for fname in os.listdir(UPLOAD_DIR):
         if fname.startswith(model_id):
-            return FileResponse(os.path.join(UPLOAD_DIR, fname), media_type="application/octet-stream", filename=fname)
+            return FileResponse(
+                os.path.join(UPLOAD_DIR, fname),
+                media_type="application/octet-stream",
+                filename=fname,
+            )
     raise HTTPException(status_code=404, detail="File not found")
 
 
@@ -400,7 +428,9 @@ def import_model(payload: dict):
 
 
 @app.put("/api/models/{model_id}/file")
-def replace_model_file(model_id: str, file: UploadFile = File(...), thumbnail: Optional[str] = Form(None)):
+def replace_model_file(
+    model_id: str, file: UploadFile = File(...), thumbnail: Optional[str] = Form(None)
+):
     conn = get_db_conn()
     cur = conn.cursor()
     m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
@@ -420,7 +450,10 @@ def replace_model_file(model_id: str, file: UploadFile = File(...), thumbnail: O
     path = os.path.join(UPLOAD_DIR, filename)
     size = save_upload_file(file, path)
 
-    cur.execute("UPDATE models SET url=?, size=?, thumbnail=? WHERE id=?", (f"/api/models/{model_id}/download", size, thumbnail, model_id))
+    cur.execute(
+        "UPDATE models SET url=?, size=?, thumbnail=? WHERE id=?",
+        (f"/api/models/{model_id}/download", size, thumbnail, model_id),
+    )
     conn.commit()
     row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
     conn.close()
