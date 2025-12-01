@@ -284,7 +284,7 @@ const ModelList: React.FC<ModelListProps> = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-6 pb-24">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 gap-6 pb-24">
           
           {/* Render Folders First */}
           {processedFolders.map(folder => (
