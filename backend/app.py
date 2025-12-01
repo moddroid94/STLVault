@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
+WEBUI_URL = os.getenv("WEBUI_URL", "http://localhost:8989")
 
 
 class FolderData(BaseModel):
@@ -32,7 +33,7 @@ class FolderData(BaseModel):
 app = FastAPI(title="STLVault API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins="http://192.168.178.21:8989",
+    allow_origins=WEBUI_URL,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
