@@ -29,5 +29,3 @@ services:
     restart: always
 volumes:
   node_modules:
-env_file:
-  - stack.env
