@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     define: {
-      'process.env.VITE_APP_API': 'http://192.168.178.21:8988',
+      'process.env.VITE_APP_API': JSON.stringify(env.VITE_APP_API),
     },
     resolve: {
       alias: {
