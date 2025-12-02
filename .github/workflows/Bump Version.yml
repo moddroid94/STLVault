@@ -31,12 +31,12 @@ jobs:
         uses: thiagodnf/string-replacer@v1.0.2
         with:
           find: 'SEMVER=.+'
-          replace: 'SEMVER={{ steps.version.outputs.version }}'
+          replace: 'SEMVER=${{ steps.version.outputs.version }}'
           include: |
             stack.env
           
       - name: Commit changes
         uses: EndBug/add-and-commit@v9
         with:
-          message: 'Bump SEMVER'
+          message: ${{ github.event.head_commit.message }}
           add: 'stack.env'
