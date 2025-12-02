@@ -16,8 +16,9 @@ services:
   frontend:
     build:
       context: ./frontend
-      args: REACT_APP_API=${BASE_URL}:${API_PORT}
-        REACT_APP_TAG=${SEMVER}
+      args: 
+        - REACT_APP_API=${BASE_URL}:${API_PORT}
+        - REACT_APP_TAG=${SEMVER}
     pull_policy: build
     volumes:
       - node_modules:/app/node_modules
