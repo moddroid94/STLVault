@@ -24,15 +24,15 @@ jobs:
       - name: Find and Replace
         uses: thiagodnf/string-replacer@v1.0.2
         with:
-          find: "VERSION=.+"
-          replace: "VERSION=${{ steps.version.outputs.version }}"
+          find: '\"version\": \".+\"'
+          replace: '"version": "${{ steps.version.outputs.version }}"'
           include: |
-            docker-compose.yml
+            frontend/package.json
       
       - name: Tag and Release
         uses: BrandonStudio/tag-and-release@v1
         with:
           tag_name: ${{ steps.version.outputs.v-version }}
-          generate_release_notes: body
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

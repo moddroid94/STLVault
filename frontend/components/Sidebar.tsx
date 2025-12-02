@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Folder as FolderIcon, Plus, Box, LayoutGrid, Pencil, Trash2, Check, X, ChevronRight, ChevronDown, FolderOpen } from 'lucide-react';
 import { Folder, STLModel, StorageStats } from '../types';
+import {version} from './package.json';
 
 interface SidebarProps {
   folders: Folder[];
@@ -431,7 +432,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20 shrink-0">
           <Box className="w-5 h-5 text-white" />
         </div>
-        <h1 className="text-xl font-bold text-white tracking-tight truncate">STL Vault</h1>
+        <h1 className="text-xl font-bold text-white tracking-tight truncate">STL Vault v{version}</h1>
       </div>
 
       <div className="px-4 mb-4">
