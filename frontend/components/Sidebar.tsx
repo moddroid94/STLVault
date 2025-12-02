@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Folder as FolderIcon, Plus, Box, LayoutGrid, Pencil, Trash2, Check, X, ChevronRight, ChevronDown, FolderOpen } from 'lucide-react';
 import { Folder, STLModel, StorageStats } from '../types';
-import {version} from './package.json';
+import {version} from '../package.json';
 
 interface SidebarProps {
   folders: Folder[];
