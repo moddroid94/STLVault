@@ -7,6 +7,7 @@ services:
       - FILE_STORAGE=/app/uploads
       - DB_PATH=/app/data/data.db
       - WEBUI_URL=http://192.168.178.21:8989
+      - VERSION=0.0.1
     ports:
       - "8988:8080"
     volumes:
