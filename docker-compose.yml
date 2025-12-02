@@ -16,8 +16,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        REACT_APP_API=${BASE_URL}:${API_PORT}
+      args: REACT_APP_API=${BASE_URL}:${API_PORT}
         REACT_APP_TAG=${SEMVER}
     pull_policy: build
     volumes:
@@ -29,3 +28,5 @@ services:
     restart: always
 volumes:
   node_modules:
+env_file:
+  - stack.env
