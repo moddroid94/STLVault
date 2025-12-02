@@ -33,6 +33,6 @@ jobs:
         uses: BrandonStudio/tag-and-release@v1
         with:
           tag_name: ${{ steps.version.outputs.v-version }}
-          generate_release_notes: body
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
