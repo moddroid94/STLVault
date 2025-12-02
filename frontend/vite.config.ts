@@ -14,9 +14,6 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
     },
     plugins: [react()],
-    define: {
-      'process.env.VITE_APP_API': JSON.stringify(env.VITE_APP_API),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
