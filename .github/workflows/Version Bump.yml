@@ -1,16 +1,15 @@
 name: Version Bump
 
 on:
-  pull_request:
-    types:
-      - closed
+  push:
     branches:
       - 'main'
+    paths:
+      - 'stack.env'
   workflow_dispatch:
 
 jobs:
   build:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,14 +22,6 @@ jobs:
         id: version
         with:
           scheme: conventional_commits
-
-      - name: Find and Replace
-        uses: thiagodnf/string-replacer@v1.0.2
-        with:
-          find: '\"version\": \".+\"'
-          replace: '"version": "${{ steps.version.outputs.version }}"'
-          include: |
-            frontend/package.json
       
       - name: Tag and Release
         uses: BrandonStudio/tag-and-release@v1
