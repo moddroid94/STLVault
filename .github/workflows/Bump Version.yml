@@ -18,7 +18,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
-        token: ${{ secrets.PAT_TOKEN }}
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
       
       - name: Get next version
         uses: reecetech/version-increment@2024.10.1
