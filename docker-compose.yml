@@ -6,9 +6,9 @@ services:
     environment:
       - FILE_STORAGE=/app/uploads
       - DB_PATH=/app/data/data.db
-      - WEBUI_URL=http://192.168.178.21:8989
+      - WEBUI_URL=${BASE_URL}:${WWW_PORT}
     ports:
-      - "8988:8080"
+      - "${API_PORT}:8080"
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/data:/app/data
@@ -18,11 +18,12 @@ services:
       context: ./frontend
     pull_policy: build
     environment:
-      - REACT_APP_API=http://192.168.178.21:8988
+      - REACT_APP_API=${BASE_URL}:${API_PORT}
+      - REACT_APP_TAG=${SEMVER}
     volumes:
       - node_modules:/app/node_modules
     ports:
-      - "8989:5173"
+      - "${WWW_PORT}:5173"
     depends_on:
       - backend
     restart: always

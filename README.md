@@ -8,6 +8,8 @@ yes, the base scaffolding of the site and backend is made with AI.
 
 This is developed to be deployed with portainer directly using the repo as a source.
 
+Images for Docker will be available in the future.
+
 ## Stack:
 - SQLite
 - FastAPI
@@ -25,9 +27,21 @@ This is developed to be deployed with portainer directly using the repo as a sou
 ## Deploy
 You can deploy using the docker-compose in the root folder or using the repo as a source from Portainer or similar.
 
-The deployment creates/uses 2 folders to store model files and database file: 
-/backend/uploads
-/backend/data
+The deployment create/uses 2 folders to store model files and the database file: 
+- /backend/uploads
+- /backend/data
 
+### You will need to replace the network configuration variables contained in stack.env.
+
+#### If you deploy via Portainer:
+You just need to define the env variables via the UI, variable substitution will replace the ones in the stack.env automatically (not available for swarms)
+
+``` 
+BASE_URL=http://0.0.0.0
+WWW_PORT=8989
+API_PORT=8988
+```
+
+othrwise you will need to edit the stack.env file before deployment.
 
 <img width="1876" height="958" alt="image" src="https://github.com/user-attachments/assets/68addb24-1742-44e9-8136-fbe4e4b31966" />
