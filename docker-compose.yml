@@ -16,13 +16,10 @@ services:
   frontend:
     build:
       context: ./frontend
-      args: 
+      args:
         - VITE_APP_API=${BASE_URL}:${API_PORT}
         - VITE_APP_TAG=${SEMVER}
     pull_policy: build
-    environment:
-      - VITE_APP_API=${BASE_URL}:${API_PORT}
-      - VITE_APP_TAG=${SEMVER}
     volumes:
       - node_modules:/app/node_modules
     ports:
