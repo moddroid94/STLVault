@@ -14,6 +14,7 @@ Images for Docker will be available in the future.
 - SQLite
 - FastAPI
 - React
+- Vite
 
 
 ## Features:
@@ -24,6 +25,7 @@ Images for Docker will be available in the future.
 - Tags, Description and Metadata Sidebar
 - Search and filter library wide
 
+
 ## Deploy
 You can deploy using the docker-compose in the root folder or using the repo as a source from Portainer or similar.
 
@@ -31,7 +33,7 @@ The deployment create/uses 2 folders to store model files and the database file:
 - /backend/uploads
 - /backend/data
 
-### You will need to replace the network configuration variables contained in stack.env.
+### Environment variables configuration in stack.env.
 
 #### If you deploy via Portainer:
 You just need to define the env variables via the UI, variable substitution will replace the ones in the stack.env automatically (not available for swarms)
@@ -44,4 +46,7 @@ API_PORT=8988
 
 othrwise you will need to edit the stack.env file before deployment.
 
+## Screenshots
+<img width="1855" height="947" alt="image" src="https://github.com/user-attachments/assets/3c1fe88f-d2e4-42ee-a99d-9c22809d64ca" />
+<img width="677" height="676" alt="image" src="https://github.com/user-attachments/assets/34f995d3-bc09-489f-92f3-1408bf0196a0" />
 <img width="1876" height="958" alt="image" src="https://github.com/user-attachments/assets/68addb24-1742-44e9-8136-fbe4e4b31966" />

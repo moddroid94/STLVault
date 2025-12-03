@@ -1,5 +1,12 @@
 FROM node:18-alpine
 
+# Set env variable
+ARG VITE_APP_API
+ENV VITE_APP_API=$VITE_APP_API
+
+ARG VITE_APP_TAG
+ENV VITE_APP_TAG=$VITE_APP_TAG
+
 WORKDIR /app
 
 COPY package.json .
@@ -7,13 +14,6 @@ COPY package.json .
 RUN npm install
 
 COPY . .
-
-# Set env variable
-ARG REACT_APP_API
-ENV REACT_APP_API=$REACT_APP_API
-
-ARG REACT_APP_TAG
-ENV REACT_APP_TAG=$REACT_APP_TAG
 
 RUN npm run build
 

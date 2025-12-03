@@ -1,4 +1,4 @@
-name: Bump Docker Semver
+name: Bump App Semver
 
 on:
   pull_request:

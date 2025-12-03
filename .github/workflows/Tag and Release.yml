@@ -1,4 +1,4 @@
-name: Version Bump
+name: Tag and Release
 
 on:
   push:

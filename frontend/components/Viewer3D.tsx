@@ -6,7 +6,7 @@ import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import { Maximize, Minimize, FileWarning } from 'lucide-react';
 import * as THREE from 'three';
 
-const API_BASE_URL = process.env.REACT_APP_API + '/api';
+const API_BASE_URL = import.meta.env.VITE_APP_API;
 
 // Defined before usage to ensure proper type resolution
 interface ErrorBoundaryProps {
