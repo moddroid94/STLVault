@@ -1,52 +1,130 @@
-## STL VAULT
+# STLVault
 
-A simple 3D printing model library manager.
-For now supports STL, STEP and 3MF files.
+![Project Status](https://img.shields.io/badge/Status-Work_In_Progress-orange?style=for-the-badge)
+![GitHub Release](https://img.shields.io/github/v/release/moddroid94/STLVault?display_name=release&style=for-the-badge&logo=github)
 
-PS.: This is heavily WIP, things will probably change. but apart from the import model button everything is working as expected.
-yes, the base scaffolding of the site and backend is made with AI.
+[![Docker Frontend CI](https://img.shields.io/github/actions/workflow/status/moddroid94/STLVault/Docker%20Frontend%20CI.yml?style=for-the-badge&logo=docker)](https://github.com/moddroid94/STLVault/actions/workflows/Docker%20Frontend%20CI.yml)
+![Docker Pulls](https://img.shields.io/docker/pulls/moddroid94/stlvault-frontend?style=for-the-badge&logo=docker)
 
-This is developed to be deployed with portainer directly using the repo as a source.
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-Images for Docker will be available in the future.
+**STLVault** is a containerized 3D Model library manager and organizer, designed specifically for 3D printing enthusiasts. It provides a clean, modern web interface to manage your growing collection of STL, STEP, and 3MF files.
 
-## Stack:
-- SQLite
-- FastAPI
-- React
-- Vite
+> **Note:** This project is currently **Heavily Work In Progress (WIP)**. While the core functionality (importing, organizing, viewing) works, expect changes and improvements.
 
+---
 
-## Features:
-- Nestable Folders
-- Drag n' Drop app wide (Import/Move)
-- Bulk Actions (Tag/Move/Delete/Download/Upload)
-- 3D preview (STL, 3MF)
-- Tags, Description and Metadata Sidebar
-- Search and filter library wide
+## ✨ Features
 
+- **📂 Nestable Folders:** Organize your models into a deep hierarchy that makes sense to you.
+- **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
+- **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
+- **👁️ 3D Preview:** Integrated web-based 3D viewer for STL and 3MF files.
+- **🏷️ Metadata Management:** Add tags, descriptions, and metadata to your models for easy retrieval.
+- **🔍 Global Search:** Sidebar search and filtering to find models library-wide.
 
-## Deploy
-You can deploy using the docker-compose in the root folder or using the repo as a source from Portainer or similar.
+---
 
-The deployment create/uses 2 folders to store model files and the database file: 
-- /backend/uploads
-- /backend/data
+## 🛠️ Tech Stack
 
-### Environment variables configuration in stack.env.
+- **Frontend:** React (TypeScript)
+- **Backend:** Python (FastAPI)
+- **Database:** SQLite
+- **Containerization:** Docker & Docker Compose
 
-#### If you deploy via Portainer:
-You just need to define the env variables via the UI, variable substitution will replace the ones in the stack.env automatically (not available for swarms)
+---
 
-``` 
-BASE_URL=http://0.0.0.0
-WWW_PORT=8989
-API_PORT=8988
-```
+## 📸 Screenshots
 
-othrwise you will need to edit the stack.env file before deployment.
+![Dashboard Preview](https://github.com/user-attachments/assets/3c1fe88f-d2e4-42ee-a99d-9c22809d64ca)
+![Upload Modal Preview](https://github.com/user-attachments/assets/34f995d3-bc09-489f-92f3-1408bf0196a0)
+![Model Viewer/Info Preview](https://github.com/user-attachments/assets/68addb24-1742-44e9-8136-fbe4e4b31966)
 
-## Screenshots
-<img width="1855" height="947" alt="image" src="https://github.com/user-attachments/assets/3c1fe88f-d2e4-42ee-a99d-9c22809d64ca" />
-<img width="677" height="676" alt="image" src="https://github.com/user-attachments/assets/34f995d3-bc09-489f-92f3-1408bf0196a0" />
-<img width="1876" height="958" alt="image" src="https://github.com/user-attachments/assets/68addb24-1742-44e9-8136-fbe4e4b31966" />
+---
+
+## 🚀 Deployment
+
+The recommended way to deploy STLVault is using **Docker Compose** or via a container management tool like **Portainer**.
+
+### Option 1: Docker Compose (CLI)
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/moddroid94/STLVault.git
+    cd STLVault
+    ```
+
+2.  **Configure Environment:**
+    Review the `stack.env` file. You can modify the ports or URL if necessary, don't change the SEMVER tag.
+
+    ```bash
+    # stack.env example
+    BASE_URL=http://0.0.0.0
+    WWW_PORT=8989
+    API_PORT=8988
+    SEMVER=x.x.x
+    ```
+
+3.  **Start the Stack:**
+
+    ```bash
+    docker-compose up -d
+    ```
+
+4.  **Access the App:**
+    Open your browser and navigate to `http://localhost:8989` (or the port you configured).
+
+### Option 2: Portainer
+
+You can deploy STLVault directly from Portainer using the repository as a stack source.
+
+1.  Create a new **Stack**.
+2.  Select **Repository** as the build method.
+3.  Enter the repository URL: `https://github.com/moddroid94/STLVault`.
+4.  **Environment Variables:** Define the variables below in the Portainer UI (variable substitution will automatically update `stack.env`).
+
+    | Variable   | Default          | Description                       |
+    | :--------- | :--------------- | :-------------------------------- |
+    | `BASE_URL` | `http://0.0.0.0` | The base URL for the application. |
+    | `WWW_PORT` | `8989`           | Port for the Frontend Web UI.     |
+    | `API_PORT` | `8988`           | Port for the Backend API.         |
+
+---
+
+## 📂 Volume Configuration
+
+The application requires two main volumes to persist data. If you are using the default `docker-compose.yml`, these are mapped automatically relative to the backend folder:
+
+- `/backend/uploads`: Stores your actual 3D model files.
+- `/backend/data`: Stores the SQLite database file.
+
+> **Tip:** If deploying on a NAS or server, map `/backend/uploads` to your existing 3D model library folder to ingest them (import functionality may be required).
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Basic File Management (Upload, Move, Delete)
+- [x] 3D Viewer (STL, 3MF)
+- [ ] Thumbnails / 3D viewer for STEP
+- [ ] Model import via Printables URL
+- [ ] User Authentication
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Since this project uses a standard React + FastAPI stack, it is easy to set up for development.
+
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
+
+---
+
+## 📝 License
+
+[MIT License](LICENSE)
