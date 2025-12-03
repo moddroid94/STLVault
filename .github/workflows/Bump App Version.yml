@@ -5,7 +5,7 @@ on:
     types:
       - closed
     branches:
-      - 'main'
+      - "main"
   workflow_dispatch:
 
 jobs:
@@ -20,23 +20,23 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ secrets.PAT_TOKEN }}
-      
+
       - name: Get next version
         uses: reecetech/version-increment@2024.10.1
         id: version
         with:
           scheme: conventional_commits
-      
+
       - name: Find and Replace
         uses: thiagodnf/string-replacer@v1.0.2
         with:
-          find: 'SEMVER=.+'
-          replace: 'SEMVER=${{ steps.version.outputs.version }}'
+          find: "SEMVER=.+"
+          replace: "SEMVER=${{ steps.version.outputs.version }}"
           include: |
-            stack.env
-          
+            .env
+
       - name: Commit changes
         uses: EndBug/add-and-commit@v9
         with:
           message: ${{ github.event.pull_request.title }}
-          add: 'stack.env'
+          add: ".env"
