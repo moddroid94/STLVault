@@ -17,6 +17,7 @@
 ## ✨ Features
 
 - **📂 Nestable Folders:** Organize your models into a deep hierarchy that makes sense to you.
+- **🪄 Open in Slicer:** Let's you open the model direclty in the slicer. (orcaslicer only, for now.)
 - **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
 - **👁️ 3D Preview:** Integrated web-based 3D viewer for STL and 3MF files.
@@ -27,7 +28,7 @@
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React (TypeScript)
+- **Frontend:** React (TypeScript), Vite
 - **Backend:** Python (FastAPI)
 - **Database:** SQLite
 - **Containerization:** Docker & Docker Compose
@@ -38,7 +39,8 @@
 
 ![Dashboard Preview](https://github.com/user-attachments/assets/3c1fe88f-d2e4-42ee-a99d-9c22809d64ca)
 ![Upload Modal Preview](https://github.com/user-attachments/assets/34f995d3-bc09-489f-92f3-1408bf0196a0)
-![Model Viewer/Info Preview](https://github.com/user-attachments/assets/68addb24-1742-44e9-8136-fbe4e4b31966)
+![Model Viewer/Info Preview](https://github.com/user-attachments/assets/ac373cf5-3952-4336-8b56-e2864127c3aa)
+
 
 ---
 
