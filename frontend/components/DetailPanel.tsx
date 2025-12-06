@@ -130,7 +130,13 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ model, onClose, onUpdate, onD
             <Download className="w-4 h-4" />
             Download
           </a>
-
+          <a
+            href={api.getSlicerUrl(model)}
+            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Open in Slicer
+          </a>
         </div>
 
         {/* Info Form */}
