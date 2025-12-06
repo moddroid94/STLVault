@@ -231,6 +231,13 @@ export const api = {
     return `${API_BASE_URL}/models/${model.id}/download`;
   },
 
+  //9b. GET slicer Weblink
+  getSlicerUrl: (model: STLModel) => {
+    if (USE_MOCK_API) return model.url;
+    //TODO: add options for slicer weblink
+    return `prusaslicer://${API_BASE_URL}/models/${model.id}/download`;
+  },
+
   // 10. BULK DELETE
   bulkDeleteModels: async (ids: string[]): Promise<void> => {
     console.log("API: Bulk deleting models", ids);
