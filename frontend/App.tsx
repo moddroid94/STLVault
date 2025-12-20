@@ -359,7 +359,7 @@ const App = () => {
   };
 
   return (
-    <div className="flex h-screen bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30">
+    <div className="flex h-dvh bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden">
       <Sidebar 
         folders={folders} 
         models={models}

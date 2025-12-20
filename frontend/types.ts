@@ -7,6 +7,8 @@ declare global {
       [key: string]: any;
     };
   }
+  
+  const __APP_VERSION__: string;
 }
 
 export interface Folder {

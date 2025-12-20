@@ -174,7 +174,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
   return (
     <div 
-      className="flex-1 p-8 h-full overflow-y-auto bg-vault-800 relative"
+      className="flex-1 p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -268,7 +268,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
       {/* Grid */}
       {processedModels.length === 0 && processedFolders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500 border-2 border-dashed border-vault-700 rounded-xl bg-vault-900/30">
+        <div className="flex flex-col items-center justify-center flex-1 text-slate-500 border-2 border-dashed border-vault-700 rounded-xl bg-vault-900/30">
           {searchQuery ? (
             <>
               <Search className="w-12 h-12 mb-4 opacity-50" />

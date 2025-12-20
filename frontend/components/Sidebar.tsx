@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Folder as FolderIcon, Plus, Box, LayoutGrid, Pencil, Trash2, Check, X, ChevronRight, ChevronDown, FolderOpen } from 'lucide-react';
 import { Folder, STLModel, StorageStats } from '../types';
 
-const APP_TAG = import.meta.env.VITE_APP_TAG;
+const APP_TAG = import.meta.env.VITE_APP_TAG || __APP_VERSION__ || 'dev';
 
 interface SidebarProps {
   folders: Folder[];
