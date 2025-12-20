@@ -463,7 +463,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </form>
       )}
 
-      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-thin scrollbar-thumb-vault-700 scrollbar-track-transparent">
+      <nav className="flex-1 overflow-y-auto px-4 space-y-0.5 scrollbar-thin scrollbar-thumb-vault-700 scrollbar-track-transparent">
         <button
           onClick={() => onSelectFolder('all')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group mb-2 ${
