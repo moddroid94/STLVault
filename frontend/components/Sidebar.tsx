@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { Folder as FolderIcon, Plus, Box, LayoutGrid, Pencil, Trash2, Check, X, ChevronRight, ChevronDown, FolderOpen } from 'lucide-react';
+import { Folder as FolderIcon, Plus, Box, LayoutGrid, Pencil, Trash2, Check, X, ChevronRight, ChevronDown, FolderOpen, Settings } from 'lucide-react';
 import { Folder, STLModel, StorageStats } from '../types';
 
 const APP_TAG = import.meta.env.VITE_APP_TAG || __APP_VERSION__ || 'dev';
@@ -16,6 +16,7 @@ interface SidebarProps {
   onDeleteFolder: (id: string) => void;
   onMoveToFolder: (folderId: string, modelIds: string[]) => void;
   onUploadToFolder: (folderId: string, files: FileList) => void;
+  onOpenSettings: () => void;
 }
 
 // Helper component for recursive rendering
@@ -268,7 +269,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onRenameFolder,
   onDeleteFolder,
   onMoveToFolder,
-  onUploadToFolder
+  onUploadToFolder,
+  onOpenSettings
 }) => {
   const [isCreatingRoot, setIsCreatingRoot] = useState(false);
   const [newRootName, setNewRootName] = useState('');
@@ -507,7 +509,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
-      <div className="p-4 border-t border-vault-700 bg-vault-900 z-10">
+      <div className="p-4 border-t border-vault-700 bg-vault-900 z-10 gap-3 flex flex-col">
+
+        <button
+          onClick={onOpenSettings}
+          className="w-full flex items-center justify-center gap-2 bg-vault-800 hover:bg-vault-700 text-slate-200 py-2 px-4 rounded-md transition-colors border border-vault-700 shadow-sm overflow-hidden"
+        >
+          <Settings className="w-4 h-4 shrink-0" />
+          <span className="truncate">Settings</span>
+        </button>
+
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-3 shadow-lg">
           <p className="text-xs text-white/80 font-medium mb-1 truncate">Storage Used</p>
           <div className="w-full bg-black/20 rounded-full h-1.5 mb-2 overflow-hidden">

@@ -31,7 +31,7 @@ class FolderData(BaseModel):
 app = FastAPI(title="STLVault API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=WEBUI_URL,
+    allow_origins=["*"],  # Allow all origins for development, or use [WEBUI_URL] for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ModelList from './components/ModelList';
 import DetailPanel from './components/DetailPanel';
+import Settings from './components/Settings';
 import { STLModel, Folder, StorageStats } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
@@ -18,6 +19,7 @@ const App = () => {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Bulk Action State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -366,16 +368,23 @@ const App = () => {
         currentFolderId={currentFolderId}
         storageStats={storageStats}
         onSelectFolder={(id) => {
-            setCurrentFolderId(id);
-            setSelectedModelId(null);
+          setCurrentFolderId(id);
+          setSelectedModelId(null);
+          setShowSettings(false);
         }}
         onCreateFolder={handleCreateFolder}
         onRenameFolder={handleRenameFolder}
         onDeleteFolder={handleDeleteFolder}
         onMoveToFolder={handleDropMove}
         onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
+        onOpenSettings={() => setShowSettings(true)}
       />
       
+      {/* Settings View */}
+      {showSettings ? (
+        <Settings onBack={() => setShowSettings(false)} />
+      ) : (
+        <>
       <main className="flex-1 flex overflow-hidden relative">
         {isLoading ? (
            <div className="absolute inset-0 flex items-center justify-center bg-vault-900 z-50">
@@ -700,6 +709,8 @@ const App = () => {
         )}
 
       </main>
+        </>
+      )}
     </div>
   );
 };

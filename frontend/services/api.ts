@@ -249,9 +249,21 @@ export const api = {
   //9b. GET slicer Weblink
   getSlicerUrl: (model: STLModel) => {
     if (USE_MOCK_API) return model.url;
-    //TODO: add options for slicer weblink
-    let modelURL = `${API_BASE_URL}/models/${model.id}/download`;
-    return `orcaslicer://open?file=${modelURL}`;
+    
+    const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
+    
+    // Get user's preferred slicer from localStorage
+    const slicerPreference = localStorage.getItem('stlvault-slicer') || 'orcaslicer';
+    
+    const slicerProtocols: Record<string, string> = {
+      'orcaslicer': 'orcaslicer://open?file=',
+      'prusaslicer': 'prusaslicer://open?file=',
+      'bambu': 'bambustudio://open?file=',
+      'cura': 'cura://open?file='
+    };
+    
+    const protocol = slicerProtocols[slicerPreference] || slicerProtocols['orcaslicer'];
+    return `${protocol}${modelURL}`;
   },
 
   // 10. BULK DELETE
