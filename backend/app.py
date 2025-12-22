@@ -490,7 +490,7 @@ if __name__ == "__main__":
     # Ensure upload directory exists
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     
-    port = int(os.getenv("PORT", "8081"))
+    port = int(os.getenv("PORT", "8080"))
     
     uvicorn.run(
         "app:app",
