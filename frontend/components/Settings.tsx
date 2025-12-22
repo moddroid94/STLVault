@@ -35,7 +35,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
   return (
     <div 
-      className="flex-1 p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
+      className="flex-1 p-4 sm:p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
     >
 
       {/* Header Section */}

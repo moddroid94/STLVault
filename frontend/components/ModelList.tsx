@@ -174,7 +174,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
   return (
     <div 
-      className="flex-1 p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
+      className="flex-1 p-4 sm:p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -193,7 +193,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
       {/* Header Section */}
       <div className="flex flex-col gap-6 mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">Model Library</h2>
             <p className="text-slate-400 text-sm">
@@ -202,7 +202,7 @@ const ModelList: React.FC<ModelListProps> = ({
             </p>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
              <button
                 onClick={onSelectAll}
                 className="bg-vault-700 hover:bg-vault-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"

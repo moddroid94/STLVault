@@ -17,6 +17,7 @@ interface SidebarProps {
   onMoveToFolder: (folderId: string, modelIds: string[]) => void;
   onUploadToFolder: (folderId: string, files: FileList) => void;
   onOpenSettings: () => void;
+  variant?: 'desktop' | 'mobile';
 }
 
 // Helper component for recursive rendering
@@ -270,8 +271,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteFolder,
   onMoveToFolder,
   onUploadToFolder,
-  onOpenSettings
+  onOpenSettings,
+  variant = 'desktop'
 }) => {
+  const isDesktopVariant = variant === 'desktop';
   const [isCreatingRoot, setIsCreatingRoot] = useState(false);
   const [newRootName, setNewRootName] = useState('');
   
@@ -286,11 +289,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isResizing, setIsResizing] = useState(false);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
+    if (!isDesktopVariant) return;
     e.preventDefault(); // Prevent text selection
     setIsResizing(true);
-  }, []);
+  }, [isDesktopVariant]);
 
   useEffect(() => {
+    if (!isDesktopVariant) return;
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -314,7 +319,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = '';
     };
-  }, [isResizing]);
+  }, [isResizing, isDesktopVariant]);
 
   // Calculate direct counts only (not recursive, matching file system behavior usually)
   const folderCounts = useMemo(() => {
@@ -428,7 +433,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       className="bg-vault-900 border-r border-vault-700 flex flex-col h-full select-none relative shrink-0 group/sidebar"
-      style={{ width }}
+      style={isDesktopVariant ? { width } : undefined}
       onDragLeave={() => setDragTargetId(null)}
     >
       <div className="p-6 flex items-center gap-3">
@@ -535,10 +540,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Resizer Handle */}
-      <div
-        className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500 transition-colors z-50 ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
-        onMouseDown={startResizing}
-      />
+      {isDesktopVariant && (
+        <div
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500 transition-colors z-50 ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
+          onMouseDown={startResizing}
+        />
+      )}
     </div>
   );
 };

@@ -105,7 +105,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ model, onClose, onUpdate, onD
   };
 
   return (
-    <div className="w-96 bg-vault-900 border-l border-vault-700 flex flex-col h-full shadow-2xl z-20 relative">
+    <div className="w-screen sm:w-96 bg-vault-900 border-l border-vault-700 flex flex-col h-full shadow-2xl z-20 relative">
       {/* Header */}
       <div className="p-4 border-b border-vault-700 flex justify-between items-center">
         <h3 className="font-semibold text-white">Model Details</h3>

@@ -4,13 +4,18 @@ import Sidebar from './components/Sidebar';
 import ModelList from './components/ModelList';
 import DetailPanel from './components/DetailPanel';
 import Settings from './components/Settings';
+import Navbar from './components/Navbar';
 import { STLModel, Folder, StorageStats } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
 import { FolderInput, Tags, X, Trash2, AlertTriangle, Download, FileUp, Globe } from 'lucide-react';
 import JSZip from 'jszip';
+import { useMediaQuery } from './hooks/useMediaQuery';
 
 const App = () => {
+  const isDesktop = useMediaQuery('(min-width: 1024px)', true);
+  const isMobile = !isDesktop;
+
   const [folders, setFolders] = useState<Folder[]>([]);
   const [models, setModels] = useState<STLModel[]>([]);
   const [storageStats, setStorageStats] = useState<StorageStats>({ used: 0, total: 0 });
@@ -20,6 +25,9 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<number>(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobileSidebarMounted, setIsMobileSidebarMounted] = useState(false);
+  const [isMobileSidebarVisible, setIsMobileSidebarVisible] = useState(false);
 
   // Bulk Action State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -89,7 +97,53 @@ const App = () => {
      setSelectedIds(new Set());
   }, [currentFolderId]);
 
+  // Close mobile sidebar when switching to desktop
+  useEffect(() => {
+    if (isDesktop) setIsMobileSidebarOpen(false);
+  }, [isDesktop]);
+
+  // Mobile sidebar animation: keep mounted during close transition
+  useEffect(() => {
+    const transitionMs = 220;
+    let timeoutId: number | undefined;
+
+    if (isMobileSidebarOpen) {
+      setIsMobileSidebarMounted(true);
+      // Delay visibility to allow initial off-screen position to render before sliding in
+      timeoutId = window.setTimeout(() => setIsMobileSidebarVisible(true), 10);
+    } else {
+      setIsMobileSidebarVisible(false);
+      timeoutId = window.setTimeout(() => setIsMobileSidebarMounted(false), transitionMs);
+    }
+
+    return () => {
+      if (typeof timeoutId === 'number') window.clearTimeout(timeoutId);
+    };
+  }, [isMobileSidebarOpen]);
+
+  // Mobile sidebar UX: ESC to close + prevent body scroll
+  useEffect(() => {
+    if (!isMobileSidebarMounted) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileSidebarOpen(false);
+    };
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isMobileSidebarMounted]);
+
   const selectedModel = models.find(m => m.id === selectedModelId) || null;
+
+  const currentFolderName = currentFolderId === 'all'
+    ? 'All Models'
+    : (folders.find(f => f.id === currentFolderId)?.name || 'Folder');
 
   const handleCreateFolder = async (name: string, parentId: string | null = null) => {
     try {
@@ -361,24 +415,76 @@ const App = () => {
   };
 
   return (
-    <div className="flex h-dvh bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden">
-      <Sidebar 
-        folders={folders} 
-        models={models}
-        currentFolderId={currentFolderId}
-        storageStats={storageStats}
-        onSelectFolder={(id) => {
-          setCurrentFolderId(id);
-          setSelectedModelId(null);
-          setShowSettings(false);
-        }}
-        onCreateFolder={handleCreateFolder}
-        onRenameFolder={handleRenameFolder}
-        onDeleteFolder={handleDeleteFolder}
-        onMoveToFolder={handleDropMove}
-        onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
-        onOpenSettings={() => setShowSettings(true)}
-      />
+    <div className={`${isDesktop ? 'flex' : 'flex flex-col'} h-dvh bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden`}>
+      {isDesktop ? (
+        <Sidebar 
+          folders={folders} 
+          models={models}
+          currentFolderId={currentFolderId}
+          storageStats={storageStats}
+          onSelectFolder={(id) => {
+            setCurrentFolderId(id);
+            setSelectedModelId(null);
+            setShowSettings(false);
+          }}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onMoveToFolder={handleDropMove}
+          onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
+          onOpenSettings={() => setShowSettings(true)}
+          variant="desktop"
+        />
+      ) : (
+        <>
+          <Navbar
+            title="STL Vault"
+            subtitle={showSettings ? 'Settings' : currentFolderName}
+            onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+            onOpenSettings={() => setShowSettings(true)}
+            showMenuButton={!showSettings}
+          />
+
+          {isMobileSidebarMounted && (
+            <div className="fixed inset-0 z-[70]">
+              <div
+                className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${
+                  isMobileSidebarVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+                onClick={() => setIsMobileSidebarOpen(false)}
+              />
+              <div
+                className={`absolute inset-y-0 left-0 w-[85vw] max-w-[360px] transform transition-transform duration-200 ease-out ${
+                  isMobileSidebarVisible ? 'translate-x-0' : '-translate-x-full'
+                }`}
+              >
+                <Sidebar 
+                  folders={folders} 
+                  models={models}
+                  currentFolderId={currentFolderId}
+                  storageStats={storageStats}
+                  onSelectFolder={(id) => {
+                    setCurrentFolderId(id);
+                    setSelectedModelId(null);
+                    setShowSettings(false);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  onCreateFolder={handleCreateFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onMoveToFolder={handleDropMove}
+                  onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
+                  onOpenSettings={() => {
+                    setShowSettings(true);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  variant="mobile"
+                />
+              </div>
+            </div>
+          )}
+        </>
+      )}
       
       {/* Settings View */}
       {showSettings ? (
