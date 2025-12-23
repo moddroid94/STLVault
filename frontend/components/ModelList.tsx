@@ -49,12 +49,19 @@ const ModelList: React.FC<ModelListProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [activeMenuModelId, setActiveMenuModelId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => setActiveMenuModelId(null);
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints ?? 0) > 0;
+    setIsTouchDevice(Boolean(isTouch));
   }, []);
 
   const processedModels = useMemo(() => {
@@ -173,8 +180,8 @@ const ModelList: React.FC<ModelListProps> = ({
   const selectionMode = selectedIds.size > 0;
 
   return (
-    <div 
-      className="flex-1 p-8 h-full overflow-y-auto bg-vault-800 relative"
+    <div
+      className="flex-1 p-4 sm:p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -193,7 +200,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
       {/* Header Section */}
       <div className="flex flex-col gap-6 mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">Model Library</h2>
             <p className="text-slate-400 text-sm">
@@ -202,7 +209,7 @@ const ModelList: React.FC<ModelListProps> = ({
             </p>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
              <button
                 onClick={onSelectAll}
                 className="bg-vault-700 hover:bg-vault-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -268,7 +275,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
       {/* Grid */}
       {processedModels.length === 0 && processedFolders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500 border-2 border-dashed border-vault-700 rounded-xl bg-vault-900/30">
+        <div className="flex flex-col items-center justify-center flex-1 text-slate-500 border-2 border-dashed border-vault-700 rounded-xl bg-vault-900/30">
           {searchQuery ? (
             <>
               <Search className="w-12 h-12 mb-4 opacity-50" />
@@ -280,6 +287,15 @@ const ModelList: React.FC<ModelListProps> = ({
               <FileBox className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg">This folder is empty</p>
               <p className="text-sm">Drag and drop STL or STEP files to upload</p>
+              {isTouchDevice && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Tap to choose files
+                </button>
+              )}
             </>
           )}
         </div>

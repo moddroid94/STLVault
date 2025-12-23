@@ -1,4 +1,16 @@
 
+// Vite environment variables type declaration
+declare global {
+  interface ImportMeta {
+    env: {
+      VITE_APP_TAG: string;
+      [key: string]: any;
+    };
+  }
+  
+  const __APP_VERSION__: string;
+}
+
 export interface Folder {
   id: string;
   name: string;
