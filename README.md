@@ -17,7 +17,7 @@
 ## ✨ Features
 
 - **📂 Nestable Folders:** Organize your models into a deep hierarchy that makes sense to you.
-- **🪄 Open in Slicer:** Let's you open the model direclty in the slicer. (orcaslicer only, for now.)
+- **🪄 Open in Slicer:** Let's you open the model direclty in your slicer.
 - **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
 - **👁️ 3D Preview:** Integrated web-based 3D viewer for STL and 3MF files.
@@ -28,10 +28,11 @@
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React (TypeScript), Vite
+- **Frontend:** React (TS), Vite
 - **Backend:** Python (FastAPI)
 - **Database:** SQLite
-- **Containerization:** Docker & Docker Compose
+- **Package Manager:** NPM, UV
+- **Containerization:** Docker & Docker Compose 
 
 ---
 
@@ -40,6 +41,7 @@
 ![Dashboard Preview](https://github.com/user-attachments/assets/3c1fe88f-d2e4-42ee-a99d-9c22809d64ca)
 ![Upload Modal Preview](https://github.com/user-attachments/assets/34f995d3-bc09-489f-92f3-1408bf0196a0)
 ![Model Viewer/Info Preview](https://github.com/user-attachments/assets/ac373cf5-3952-4336-8b56-e2864127c3aa)
+![Settings Preview](https://github.com/user-attachments/assets/95adf21c-f8e8-45ad-b07c-1fac7f821b62)
 
 
 ---
@@ -77,7 +79,7 @@ The recommended way to deploy STLVault is using **Docker Compose** or via a cont
 4.  **Access the App:**
     Open your browser and navigate to `http://localhost:8989` (or the port you configured).
 
-### Option 2: Portainer
+### Option 2: Portainer or GitOps (Recommended)
 
 You can deploy STLVault directly from Portainer using the repository as a stack source.
 
@@ -109,6 +111,7 @@ The application requires two main volumes to persist data. If you are using the 
 
 - [x] Basic File Management (Upload, Move, Delete)
 - [x] 3D Viewer (STL, 3MF)
+- [x] Open in Slicer settings
 - [ ] Thumbnails / 3D viewer for STEP
 - [ ] Model import via Printables URL
 - [ ] User Authentication

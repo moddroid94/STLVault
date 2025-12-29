@@ -4,14 +4,11 @@ import time
 import shutil
 import sqlite3
 from fastapi import (
-    BackgroundTasks,
-    Depends,
     FastAPI,
     UploadFile,
     File,
     Form,
     HTTPException,
-    Query,
 )
 from fastapi.responses import FileResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -19,6 +16,7 @@ import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel
+import requests
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
@@ -33,7 +31,7 @@ class FolderData(BaseModel):
 app = FastAPI(title="STLVault API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=WEBUI_URL,
+    allow_origins=["*"],  # Allow all origins for development, or use [WEBUI_URL] for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -208,7 +206,11 @@ def upload_model(
     tags: Optional[str] = Form(None),
 ):
     mid = str(uuid.uuid4())
-    ext = os.path.splitext(file.filename)[1] or ".stl"
+    
+    # Ensure that file.filename is a string before passing it to os.path.splitext, providing a default value if it is None
+    filename_str = file.filename or ".stl"
+    ext = os.path.splitext(filename_str)[1] or ".stl"
+    
     filename = f"{mid}{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
     size = save_upload_file(file, path)
@@ -378,16 +380,26 @@ def import_model(payload: dict):
     url = payload.get("url")
     folderId = payload.get("folderId", "1")
     mid = str(uuid.uuid4())
-    ext = os.path.splitext(url.split("?")[0])[1] or ".stl"
+    
+    # check if url is not None before calling split on it and provide a default extension if it is None
+    if url:
+        ext = os.path.splitext(url.split("?")[0])[1] or ".stl"
+    else:
+        ext = ".stl"
+    
     filename = f"{mid}{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
 
+    # Check if url is not None before calling requests.get(url, ...)
     try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        with open(path, "wb") as fh:
-            fh.write(r.content)
-        size = os.path.getsize(path)
+        if url is not None:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            with open(path, "wb") as fh:
+                fh.write(r.content)
+            size = os.path.getsize(path)
+        else:
+            raise ValueError("URL is None")
     except Exception:
         # create empty valid binary STL (80 byte header + 4 byte count)
         header = bytes(80)
@@ -447,7 +459,8 @@ def replace_model_file(
             except Exception:
                 pass
 
-    ext = os.path.splitext(file.filename)[1] or ".stl"
+    filename_str = file.filename or ".stl"
+    ext = os.path.splitext(filename_str)[1] or ".stl"
     filename = f"{model_id}{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
     size = save_upload_file(file, path)
@@ -469,3 +482,20 @@ def storage_stats():
         used += os.path.getsize(os.path.join(UPLOAD_DIR, fname))
     total = 5 * 1024 * 1024 * 1024
     return {"used": used, "total": total}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    # Ensure upload directory exists
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    
+    port = int(os.getenv("PORT", "8080"))
+    
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        log_level="info"
+    )

@@ -3,13 +3,21 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ModelList from './components/ModelList';
 import DetailPanel from './components/DetailPanel';
+import Settings from './components/Settings';
+import Navbar from './components/Navbar';
 import { STLModel, Folder, StorageStats } from './types';
 import { generateThumbnail } from './services/thumbnailGenerator';
 import { api } from './services/api';
 import { FolderInput, Tags, X, Trash2, AlertTriangle, Download, FileUp, Globe } from 'lucide-react';
 import JSZip from 'jszip';
+import { useMediaQuery } from './hooks/useMediaQuery';
+import { useVisualViewport } from './hooks/useVisualViewport';
 
 const App = () => {
+  const isDesktop = useMediaQuery('(min-width: 1024px)', true);
+  const isMobile = !isDesktop;
+  const visualViewport = useVisualViewport();
+
   const [folders, setFolders] = useState<Folder[]>([]);
   const [models, setModels] = useState<STLModel[]>([]);
   const [storageStats, setStorageStats] = useState<StorageStats>({ used: 0, total: 0 });
@@ -18,6 +26,10 @@ const App = () => {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobileSidebarMounted, setIsMobileSidebarMounted] = useState(false);
+  const [isMobileSidebarVisible, setIsMobileSidebarVisible] = useState(false);
 
   // Bulk Action State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -87,7 +99,53 @@ const App = () => {
      setSelectedIds(new Set());
   }, [currentFolderId]);
 
+  // Close mobile sidebar when switching to desktop
+  useEffect(() => {
+    if (isDesktop) setIsMobileSidebarOpen(false);
+  }, [isDesktop]);
+
+  // Mobile sidebar animation: keep mounted during close transition
+  useEffect(() => {
+    const transitionMs = 220;
+    let timeoutId: number | undefined;
+
+    if (isMobileSidebarOpen) {
+      setIsMobileSidebarMounted(true);
+      // Delay visibility to allow initial off-screen position to render before sliding in
+      timeoutId = window.setTimeout(() => setIsMobileSidebarVisible(true), 10);
+    } else {
+      setIsMobileSidebarVisible(false);
+      timeoutId = window.setTimeout(() => setIsMobileSidebarMounted(false), transitionMs);
+    }
+
+    return () => {
+      if (typeof timeoutId === 'number') window.clearTimeout(timeoutId);
+    };
+  }, [isMobileSidebarOpen]);
+
+  // Mobile sidebar UX: ESC to close + prevent body scroll
+  useEffect(() => {
+    if (!isMobileSidebarMounted) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileSidebarOpen(false);
+    };
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isMobileSidebarMounted]);
+
   const selectedModel = models.find(m => m.id === selectedModelId) || null;
+
+  const currentFolderName = currentFolderId === 'all'
+    ? 'All Models'
+    : (folders.find(f => f.id === currentFolderId)?.name || 'Folder');
 
   const handleCreateFolder = async (name: string, parentId: string | null = null) => {
     try {
@@ -359,23 +417,82 @@ const App = () => {
   };
 
   return (
-    <div className="flex h-screen bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30">
-      <Sidebar 
-        folders={folders} 
-        models={models}
-        currentFolderId={currentFolderId}
-        storageStats={storageStats}
-        onSelectFolder={(id) => {
+    <div className={`${isDesktop ? 'flex' : 'flex flex-col'} h-dvh bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden`}>
+      {isDesktop ? (
+        <Sidebar 
+          folders={folders} 
+          models={models}
+          currentFolderId={currentFolderId}
+          storageStats={storageStats}
+          onSelectFolder={(id) => {
             setCurrentFolderId(id);
             setSelectedModelId(null);
-        }}
-        onCreateFolder={handleCreateFolder}
-        onRenameFolder={handleRenameFolder}
-        onDeleteFolder={handleDeleteFolder}
-        onMoveToFolder={handleDropMove}
-        onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
-      />
+            setShowSettings(false);
+          }}
+          onCreateFolder={handleCreateFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onMoveToFolder={handleDropMove}
+          onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
+          onOpenSettings={() => setShowSettings(true)}
+          variant="desktop"
+        />
+      ) : (
+        <>
+          <Navbar
+            title="STL Vault"
+            subtitle={showSettings ? 'Settings' : currentFolderName}
+            onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+            onOpenSettings={() => setShowSettings(true)}
+            showMenuButton={!showSettings}
+          />
+
+          {isMobileSidebarMounted && (
+            <div className="fixed inset-0 z-[70]">
+              <div
+                className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${
+                  isMobileSidebarVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+                onClick={() => setIsMobileSidebarOpen(false)}
+              />
+              <div
+                className={`absolute inset-y-0 left-0 w-[85vw] max-w-[360px] transform transition-transform duration-200 ease-out ${
+                  isMobileSidebarVisible ? 'translate-x-0' : '-translate-x-full'
+                }`}
+              >
+                <Sidebar 
+                  folders={folders} 
+                  models={models}
+                  currentFolderId={currentFolderId}
+                  storageStats={storageStats}
+                  onSelectFolder={(id) => {
+                    setCurrentFolderId(id);
+                    setSelectedModelId(null);
+                    setShowSettings(false);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  onCreateFolder={handleCreateFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onMoveToFolder={handleDropMove}
+                  onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
+                  onOpenSettings={() => {
+                    setShowSettings(true);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  variant="mobile"
+                />
+              </div>
+            </div>
+          )}
+        </>
+      )}
       
+      {/* Settings View */}
+      {showSettings ? (
+        <Settings onBack={() => setShowSettings(false)} />
+      ) : (
+        <>
       <main className="flex-1 flex overflow-hidden relative">
         {isLoading ? (
            <div className="absolute inset-0 flex items-center justify-center bg-vault-900 z-50">
@@ -488,8 +605,23 @@ const App = () => {
         
         {/* Upload Modal */}
         {showUploadModal && (
-            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div
+                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${visualViewport.keyboardOpen ? 'items-start' : 'items-center'}`}
+                style={{
+                  width: '100%',
+                  height: visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0),
+                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                }}
+            >
+                <div
+                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  style={{
+                    maxHeight: Math.max(
+                      240,
+                      (visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0)) - 32
+                    ),
+                  }}
+                >
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                             <FileUp className="w-5 h-5 text-blue-500" /> Upload Files
@@ -556,8 +688,23 @@ const App = () => {
         
         {/* Import URL Modal */}
         {showImportModal && (
-            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div
+                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${visualViewport.keyboardOpen ? 'items-start' : 'items-center'}`}
+                style={{
+                  width: '100%',
+                  height: visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0),
+                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                }}
+            >
+                <div
+                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  style={{
+                    maxHeight: Math.max(
+                      240,
+                      (visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0)) - 32
+                    ),
+                  }}
+                >
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                             <Globe className="w-5 h-5 text-indigo-500" /> Import from URL
@@ -619,8 +766,23 @@ const App = () => {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirmState.isOpen && (
-            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div
+                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${visualViewport.keyboardOpen ? 'items-start' : 'items-center'}`}
+                style={{
+                  width: '100%',
+                  height: visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0),
+                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                }}
+            >
+                <div
+                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  style={{
+                    maxHeight: Math.max(
+                      240,
+                      (visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0)) - 32
+                    ),
+                  }}
+                >
                     <div className="flex flex-col items-center text-center mb-6">
                         <div className="w-12 h-12 bg-red-900/30 rounded-full flex items-center justify-center mb-4">
                             <AlertTriangle className="w-6 h-6 text-red-500" />
@@ -652,8 +814,23 @@ const App = () => {
         )}
 
         {showMoveModal && (
-            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div
+                className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${visualViewport.keyboardOpen ? 'items-start' : 'items-center'}`}
+                style={{
+                  width: '100%',
+                  height: visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0),
+                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                }}
+            >
+                <div
+                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  style={{
+                    maxHeight: Math.max(
+                      200,
+                      (visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0)) - 32
+                    ),
+                  }}
+                >
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-white flex items-center gap-2"><FolderInput className="w-4 h-4" /> Move to Folder</h3>
                         <button onClick={() => setShowMoveModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
@@ -674,8 +851,23 @@ const App = () => {
         )}
 
         {showTagModal && (
-            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <div className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div
+                className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${visualViewport.keyboardOpen ? 'items-start' : 'items-center'}`}
+                style={{
+                  width: '100%',
+                  height: visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0),
+                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                }}
+            >
+                <div
+                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  style={{
+                    maxHeight: Math.max(
+                      240,
+                      (visualViewport.height || (typeof window !== 'undefined' ? window.innerHeight : 0)) - 32
+                    ),
+                  }}
+                >
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-white flex items-center gap-2"><Tags className="w-4 h-4" /> Add Tags</h3>
                         <button onClick={() => setShowTagModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
@@ -700,6 +892,8 @@ const App = () => {
         )}
 
       </main>
+        </>
+      )}
     </div>
   );
 };
