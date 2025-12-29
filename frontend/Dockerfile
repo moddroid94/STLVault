@@ -9,10 +9,9 @@ ENV VITE_APP_TAG=$VITE_APP_TAG
 
 WORKDIR /app
 
-COPY package.json .
+COPY package.json bun.lock .
 
-RUN bun install --production --omit=dev
-
+RUN bun install --frozen-lockfile --production
 COPY . .
 
 RUN bun run build
