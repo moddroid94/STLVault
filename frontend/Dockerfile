@@ -1,4 +1,4 @@
-FROM oven/bun:1-alpine
+FROM node:22-alpine
 
 # Set env variable
 ARG VITE_APP_API
@@ -9,13 +9,14 @@ ENV VITE_APP_TAG=$VITE_APP_TAG
 
 WORKDIR /app
 
-COPY package.json bun.lock .
+COPY package.json .
 
-RUN bun install --frozen-lockfile --production
+RUN npm install
+
 COPY . .
 
-RUN bun run build
+RUN npm run build
 
 EXPOSE 5173
 
-CMD [ "bun", "run", "preview" ]
+CMD [ "npm", "run", "preview" ]
