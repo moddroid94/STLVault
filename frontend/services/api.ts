@@ -1,4 +1,4 @@
-import { Folder, STLModel, StorageStats } from "../types";
+import { Folder, STLModel, StorageStats, STLModelCollection } from "../types";
 import { v4 as uuidv4 } from "uuid";
 
 // Set this to FALSE to use a real backend server
@@ -327,6 +327,20 @@ export const api = {
       body: JSON.stringify({ ids, tags }),
     });
     if (!res.ok) throw new Error("Bulk tag failed");
+  },
+
+  // 13. IMPORT FROM URL
+  retrieveModelOptions: async (
+    url: string,
+  ): Promise<STLModelCollection[]> => {
+
+    const res = await fetch(`${API_BASE_URL}/models/options`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) throw new Error("Import failed");
+    return res.json();
   },
 
   // 13. IMPORT FROM URL

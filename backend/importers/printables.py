@@ -201,6 +201,42 @@ class PrintablesImporter():
             raise e
         return True
     
+    def _get_model_info(self, modelId):
+        header = {
+            "accept": "application/graphql-response+json, application/graphql+json, application/json, text/event-stream, multipart/mixed",
+            "accept-language": "en",
+            "client-uid" : self.clientId,
+            "cache-control": "no-cache",
+            "content-type": "application/json",
+            "graphql-client-version": "v3.0.11",
+            "pragma": "no-cache",
+            "priority": "u=1, i",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        }
+        variables = {"id": modelId}
+
+        response = self.session.post(self.graphurl, json={'query': MODELQUERY , 'variables': variables}, headers=header)
+
+        if response.status_code != 200:
+            return response.status_code
+        
+        modelData = response.json()
+        modelCollection = []
+        try:
+            for model in modelData["data"]["model"]["stls"]:
+                modelCollection.append(
+                  {
+                    "id": model["id"],
+                    "name": model["name"],
+                    "folder": model["folder"],
+                    "previewPath": "https://files.printables.com/" + model["filepreviewPath"],
+                    "typeName": "stl",
+                  }
+                )
+        except Exception as e:
+            raise e
+        return modelCollection
+  
     def _get_file(self, modelId):
         header = {
             "accept": "application/graphql-response+json, application/graphql+json, application/json, text/event-stream, multipart/mixed",
@@ -270,3 +306,19 @@ class PrintablesImporter():
             raise e
         finally:
             self.session.close()
+    
+    def getModelOptions(self, url):
+        self.session = requests.Session()
+        modelId = re.search(r"model/(\d+)", url)[1]
+        if modelId is None:
+            return None
+        try:
+            self._set_client_data(url)
+            time.sleep(0.2)
+            modelData = self._get_model_info(modelId)
+            return modelData
+        except Exception as e:
+            raise e
+        finally:
+            self.session.close()
+    

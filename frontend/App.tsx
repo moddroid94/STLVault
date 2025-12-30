@@ -249,6 +249,22 @@ const App = () => {
     
     setIsLoading(true);
     try {
+      const ModelOptions = await api.retrieveModelOptions(importUrl);
+      console.log(ModelOptions)
+      setShowImportModal(false);
+
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert("Failed to import from URL");
+    }
+  };
+
+  const handleImportChoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importUrl || !importFolderId) return;
+    
+    setIsLoading(true);
+    try {
       const newModel = await api.importModelFromUrl(importUrl, importFolderId);
       setModels(prev => [newModel, ...prev]);
       setShowImportModal(false);

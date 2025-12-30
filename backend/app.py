@@ -437,6 +437,21 @@ def import_model(payload: dict):
     conn.close()
     return model
 
+@app.post("/api/models/options")
+def import_model_options(payload: dict):
+    importer = printables.PrintablesImporter()
+    url = payload.get("url")
+
+    # Check if url is not None before calling importer
+    try:
+        if url is not None:
+            modelData = importer.getModelOptions(url)
+            if modelData is not None:
+                return modelData
+            raise ValueError("Collection Is Empty")
+        raise ValueError("URL is None")
+    except Exception as e:
+        raise e
 
 @app.put("/api/models/{model_id}/file")
 def replace_model_file(

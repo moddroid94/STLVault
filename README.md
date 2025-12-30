@@ -114,7 +114,7 @@ The application requires two main volumes to persist data. If you are using the 
 - [x] 3D Viewer (STL, 3MF)
 - [x] Open in Slicer settings
 - [ ] Thumbnails / 3D viewer for STEP
-- [ ] Model import via Printables URL
+- [-] Model import via Printables URL(WIP)
 - [ ] User Authentication
 
 ---

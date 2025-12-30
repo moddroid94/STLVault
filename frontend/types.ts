@@ -31,6 +31,14 @@ export interface STLModel {
   thumbnail?: string;
 }
 
+export interface STLModelCollection {
+  id: string;
+  name: string;
+  folder: string | null;
+  previewPath: string;
+  typeName: string;
+}
+
 export interface StorageStats {
   used: number;
   total: number;
