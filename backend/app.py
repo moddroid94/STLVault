@@ -16,7 +16,9 @@ import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel
-import requests
+
+
+from importers import printables
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
@@ -377,15 +379,13 @@ def bulk_tag(payload: dict):
 
 @app.post("/api/models/import")
 def import_model(payload: dict):
+    importer = printables.PrintablesImporter()
     url = payload.get("url")
     folderId = payload.get("folderId", "1")
     mid = str(uuid.uuid4())
     
-    # check if url is not None before calling split on it and provide a default extension if it is None
-    if url:
-        ext = os.path.splitext(url.split("?")[0])[1] or ".stl"
-    else:
-        ext = ".stl"
+    # we only save stl for now
+    ext = ".stl"
     
     filename = f"{mid}{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
@@ -393,11 +393,13 @@ def import_model(payload: dict):
     # Check if url is not None before calling requests.get(url, ...)
     try:
         if url is not None:
-            r = requests.get(url, timeout=10)
-            r.raise_for_status()
-            with open(path, "wb") as fh:
-                fh.write(r.content)
-            size = os.path.getsize(path)
+            file = importer.importfromURL(url)
+            if file is not None:
+                with open(path, "wb") as fh:
+                    fh.write(file.content)
+                size = os.path.getsize(path)
+            else:
+                raise ValueError("File Is Empty")
         else:
             raise ValueError("URL is None")
     except Exception:
