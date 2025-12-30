@@ -250,7 +250,7 @@ class PrintablesImporter():
             }
         file = self.session.get("https://files.printables.com/" + self.filePreviewPath, allow_redirects=True, headers=fileheader)
         encoded_string = base64.b64encode(file.content)
-        return "data:image/png;base64," + encoded_string
+        return "data:image/png;base64," + str(encoded_string)
 
     def importfromURL(self, url):
         self.session = requests.Session()
