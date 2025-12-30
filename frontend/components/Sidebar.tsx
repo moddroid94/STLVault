@@ -162,7 +162,7 @@ const FolderNode: React.FC<FolderNodeProps> = ({
             </div>
 
             {/* Hover Actions */}
-            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-2 bg-vault-900/50 backdrop-blur-sm rounded px-1">
+            <div className="absolute right-5 items-center opacity-0 group-hover:opacity-100 transition-opacity ml-2 bg-vault-900/50 backdrop-blur-sm rounded px-1">
                <button 
                   onClick={(e) => {
                       e.stopPropagation();
@@ -285,7 +285,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [dragTargetId, setDragTargetId] = useState<string | null>(null);
 
   // Resize state
-  const [width, setWidth] = useState(260);
+  const [width, setWidth] = useState(330);
   const [isResizing, setIsResizing] = useState(false);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -470,7 +470,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </form>
       )}
 
-      <nav className="flex-1 overflow-y-auto px-4 space-y-0.5 scrollbar-thin scrollbar-thumb-vault-700 scrollbar-track-transparent">
+      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-thin scrollbar-thumb-vault-700 scrollbar-track-transparent">
         <button
           onClick={() => onSelectFolder('all')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group mb-2 ${
