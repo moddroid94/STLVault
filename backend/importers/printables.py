@@ -196,7 +196,7 @@ class PrintablesImporter():
             self.fileType = self.fileName.split(".")[-1]
             self.filePreviewPath = modelData["data"]["model"]["stls"][modelNr]["filePreviewPath"]
         except Exception as e:
-            return e
+            raise e
         return True
     
     def _get_file(self):
@@ -226,7 +226,7 @@ class PrintablesImporter():
 
         if self.fileResult:
             fileheader = {
-                "accept": "*/*",
+                "accept": "application/graphql-response+json, application/graphql+json, application/json, text/event-stream, multipart/mixed",
                 "accept-language": "en",
                 "client-uid" : self.clientId,
                 "cache-control": "no-cache",
