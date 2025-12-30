@@ -395,7 +395,6 @@ def import_model(payload: dict):
         if url is not None:
             file = importer.importfromURL(url)
             if file is not None:
-                print(file)
                 with open(path, "wb") as fh:
                     fh.write(file.content)
                 size = os.path.getsize(path)

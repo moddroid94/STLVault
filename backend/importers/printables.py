@@ -146,7 +146,6 @@ class PrintablesImporter():
     def __init__(self):
         self.session: requests.Session
         self.graphurl = "https://api.printables.com/graphql/"
-        self.modelId= ""
         self.clientId= ""
         self.fileId = ""
         self.fileName = ""
@@ -169,7 +168,7 @@ class PrintablesImporter():
             return response.status_code
 
         self.clientId = re.search("data-client-uid=\"(([a-z0-9-])+)", response.text)[1]
-        logging.info("clientid= %s",self.clientId)
+
         return True
     
     def _set_model_info(self, modelId, modelNr: int):
@@ -192,17 +191,17 @@ class PrintablesImporter():
             return response.status_code
         
         modelData = response.json()
-        logging.info("response= %s",response.text)
+
         try:
             self.fileId = modelData["data"]["model"]["stls"][modelNr]["id"]
             self.fileName = modelData["data"]["model"]["stls"][modelNr]["name"]
-            self.fileType = self.fileName.split(".")[-1]
+            self.fileType = modelData["data"]["model"]["stls"][modelNr]["name"].split(".")[-1]
             self.filePreviewPath = modelData["data"]["model"]["stls"][modelNr]["filePreviewPath"]
         except Exception as e:
             raise e
         return True
     
-    def _get_file(self):
+    def _get_file(self, modelId):
         header = {
             "accept": "application/graphql-response+json, application/graphql+json, application/json, text/event-stream, multipart/mixed",
             "accept-language": "en",
@@ -214,8 +213,8 @@ class PrintablesImporter():
             "priority": "u=1, i",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
         }
-        variables = {"fileType":self.fileType,"id":self.fileId,"modelId":self.modelId,"source":"model_detail"}
-
+        variables = {"fileType":self.fileType,"id":self.fileId,"modelId":modelId,"source":"model_detail"}
+        print(variables)
         response = self.session.post(self.graphurl, json={'query': FILEQUERY , 'variables': variables}, headers=header)
         if response.status_code != 200:
             return response.status_code
@@ -226,7 +225,7 @@ class PrintablesImporter():
         except Exception as e:
             raise e
 
-        if self.fileResult:
+        if self.fileResult is True:
             fileheader = {
                 "accept": "application/graphql-response+json, application/graphql+json, application/json, text/event-stream, multipart/mixed",
                 "accept-language": "en",
@@ -251,7 +250,7 @@ class PrintablesImporter():
             self._set_model_info(modelId, 0)
             time.sleep(0.2)
 
-            return self._get_file()
+            return self._get_file(modelId)
         except Exception as e:
             raise e
         finally:
