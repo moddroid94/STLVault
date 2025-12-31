@@ -824,14 +824,14 @@ const App = () => {
                             <X className="w-5 h-5" />
                         </button>
                     </div>
-                    
+                    <div>
                     {/* File List */}
                     {modelsOptions.map(model => (
-                        <div>
+                        
                           <div
                             key={model.id}
                             onClick={() => handleOptionsToggleSelection(model.id)}
-                            className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 pb-2 relative overflow-hidden
+                            className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 mb-2 relative overflow-hidden
                               ${selectedOptions.has(model.id) ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-vault-700 hover:border-vault-600'}
                             `}
                         >
@@ -839,7 +839,7 @@ const App = () => {
                                 <img 
                                   src={model.previewPath} 
                                   alt={model.name} 
-                                  className="w-12 h-12 object-contain p-2 opacity-80 group-hover:opacity-100 transition-opacity" 
+                                  className="w-12 h-12 object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
                                 />
                             </div>
 
@@ -849,8 +849,9 @@ const App = () => {
                             </div>
                             
                           </div>
-                        </div>
+                        
                     ))}
+                    </div>
                     <div 
                         onClick={() => handleImportChoice()}
                         className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
