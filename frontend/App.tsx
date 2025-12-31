@@ -848,13 +848,13 @@ const App = () => {
                                 <p className="text-xs text-slate-500">{model.typeName}</p>
                             </div>
                             
-                        </div>
-                        <div 
-                            onClick={() => handleImportChoice()}
-                            className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
-                        > Import </div>
+                          </div>
                         </div>
                     ))}
+                    <div 
+                        onClick={() => handleImportChoice()}
+                        className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
+                    > Import </div>
                 </div>
             </div>
         )}
