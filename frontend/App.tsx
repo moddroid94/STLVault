@@ -827,7 +827,8 @@ const App = () => {
                     
                     {/* File List */}
                     {modelsOptions.map(model => (
-                        <div
+                        <div>
+                          <div
                             key={model.id}
                             onClick={() => handleOptionsToggleSelection(model.id)}
                             className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 pb-2 relative overflow-hidden
@@ -852,6 +853,7 @@ const App = () => {
                             onClick={() => handleImportChoice()}
                             className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
                         > Import </div>
+                        </div>
                     ))}
                 </div>
             </div>
