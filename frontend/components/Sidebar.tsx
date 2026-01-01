@@ -135,7 +135,7 @@ const FolderNode: React.FC<FolderNodeProps> = ({
       >
         {/* Expand Toggle */}
         <div
-          className="w-5 h-5 flex items-center justify-center shrink-0 cursor-pointer hover:text-white mr-1"
+          className="w-5 h-5 flex items-center justify-center shrink-0 cursor-pointer hover:text-white hover:bg-vault-600 rounded-md mr-1 "
           onClick={(e) => {
             e.stopPropagation();
             onToggleExpand(folder.id);
@@ -143,13 +143,13 @@ const FolderNode: React.FC<FolderNodeProps> = ({
         >
           {hasChildren ? (
             isExpanded ? (
-              <ChevronDown className="w-3 h-3" />
+              <ChevronDown className="w-4 h-4 bg-vault-700 rounded-md " />
             ) : (
-              <ChevronRight className="w-3 h-3" />
+              <ChevronRight className="w-4 h-4 bg-vault-700 rounded-md" />
             )
           ) : (
             // Placeholder to keep alignment
-            <div className="w-3 h-3" />
+            <div className="w-4 h-4" />
           )}
         </div>
 
@@ -424,6 +424,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const toggleExpand = (id: string) => {
+    onSelectFolder(id);
     setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -581,7 +582,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               folderCounts={folderCounts}
               creatingSubfolderId={creatingSubfolderId}
               onToggleExpand={toggleExpand}
-              onSelect={onSelectFolder}
+              onSelect={toggleExpand}
               onRename={onRenameFolder}
               onDelete={handleDeleteRequest}
               onSetEditing={setEditingId}
