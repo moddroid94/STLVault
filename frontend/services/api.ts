@@ -3,8 +3,15 @@ import { v4 as uuidv4 } from "uuid";
 
 // Set this to FALSE to use a real backend server
 const USE_MOCK_API = false;
-//
-const API_BASE_URL = import.meta.env.VITE_APP_API + "/api";
+const API_BASE_ = "http://192.168.178.21:5174/api";
+let API_BASE_URL = "";
+
+if (import.meta.env.VITE_APP_API == undefined) {
+  API_BASE_URL = "http://192.168.178.21:5174/api";
+} else {
+  const url = import.meta.env.VITE_APP_API + "/api";
+  API_BASE_URL = url;
+}
 
 // Mock Data Store (for demonstration without a real backend)
 const getMockStore = () => {

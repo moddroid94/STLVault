@@ -15,8 +15,14 @@ import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
 import { Maximize, Minimize, FileWarning } from "lucide-react";
 import * as THREE from "three";
 
-//const API_BASE_URL = "http://192.168.178.21:5174";
-const API_BASE_URL = import.meta.env.VITE_APP_API;
+let API_BASE_URL = "";
+
+if (import.meta.env.VITE_APP_API == undefined) {
+  API_BASE_URL = "http://192.168.178.21:5174";
+} else {
+  const url = import.meta.env.VITE_APP_API;
+  API_BASE_URL = url;
+}
 
 // Defined before usage to ensure proper type resolution
 interface ErrorBoundaryProps {
