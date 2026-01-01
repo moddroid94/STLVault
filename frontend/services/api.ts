@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // Set this to FALSE to use a real backend server
 const USE_MOCK_API = false;
+//
 const API_BASE_URL = import.meta.env.VITE_APP_API + "/api";
 
 // Mock Data Store (for demonstration without a real backend)
@@ -249,20 +250,22 @@ export const api = {
   //9b. GET slicer Weblink
   getSlicerUrl: (model: STLModel) => {
     if (USE_MOCK_API) return model.url;
-    
+
     const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
-    
+
     // Get user's preferred slicer from localStorage
-    const slicerPreference = localStorage.getItem('stlvault-slicer') || 'orcaslicer';
-    
+    const slicerPreference =
+      localStorage.getItem("stlvault-slicer") || "orcaslicer";
+
     const slicerProtocols: Record<string, string> = {
-      'orcaslicer': 'orcaslicer://open?file=',
-      'prusaslicer': 'prusaslicer://open?file=',
-      'bambu': 'bambustudio://open?file=',
-      'cura': 'cura://open?file='
+      orcaslicer: "orcaslicer://open?file=",
+      prusaslicer: "prusaslicer://open?file=",
+      bambu: "bambustudio://open?file=",
+      cura: "cura://open?file=",
     };
-    
-    const protocol = slicerProtocols[slicerPreference] || slicerProtocols['orcaslicer'];
+
+    const protocol =
+      slicerProtocols[slicerPreference] || slicerProtocols["orcaslicer"];
     return `${protocol}${modelURL}`;
   },
 
@@ -330,10 +333,7 @@ export const api = {
   },
 
   // 13. RETRIEVE MODEL OPTIONS
-  retrieveModelOptions: async (
-    url: string,
-  ): Promise<STLModelCollection[]> => {
-
+  retrieveModelOptions: async (url: string): Promise<STLModelCollection[]> => {
     const res = await fetch(`${API_BASE_URL}/printables/options`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -351,7 +351,6 @@ export const api = {
     previewPath: string,
     folderId: string
   ): Promise<STLModel> => {
-
     const res = await fetch(`${API_BASE_URL}/printables/importid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
