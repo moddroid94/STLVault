@@ -958,7 +958,7 @@ const App = () => {
                 }}
               >
                 <div
-                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  className="relative bg-vault-800 border border-vault-600 rounded-xl p-6 w-full lg:w-1/2 shadow-2xl animate-in zoom-in-95 duration-200 "
                   style={{
                     maxHeight: Math.max(
                       240,
@@ -969,7 +969,7 @@ const App = () => {
                     ),
                   }}
                 >
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="static flex top-0 justify-between items-center mb-6">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                       <Globe className="w-5 h-5 text-indigo-500" /> Select model
                       to download
@@ -983,10 +983,16 @@ const App = () => {
                   </div>
 
                   {/* File List */}
-                  <div>
+                  <div
+                    className={`static overflow-auto px-2 ${
+                  visualViewport.height > 900 ? "h-[700px]" : "h-[400px]"
+                }`}
+                  >
                     {Array.from(folderOptions).map((f) => (
                       <div>
-                        <div className="text-xl font-medium p-4">{f ? (f): ("Root Folder")}</div>
+                        <div className="text-xl font-medium p-4">
+                          {f ? f : "Root Folder"}
+                        </div>
                         {modelsOptions.map((model) => (
                           <div>
                             {model.folder == f ? (
@@ -1031,7 +1037,7 @@ const App = () => {
 
                   <div
                     onClick={() => handleImportChoice()}
-                    className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
+                    className="static bottom-0 p-2 mt-4 cursor-pointer rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
                   >
                     {" "}
                     Import{" "}
