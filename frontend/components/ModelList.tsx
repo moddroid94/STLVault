@@ -242,8 +242,10 @@ const ModelList: React.FC<ModelListProps> = ({
               Model Library
             </h2>
             <p className="text-slate-400 text-sm">
+              {processedFolders.length}{" "}
+              {processedFolders.length === 1 ? "folder - " : "folders - "}
               {processedModels.length}{" "}
-              {processedModels.length === 1 ? "item" : "items"}
+              {processedModels.length === 1 ? "model" : "models"}
               {models.length !== processedModels.length &&
                 ` (filtered from ${models.length})`}
             </p>

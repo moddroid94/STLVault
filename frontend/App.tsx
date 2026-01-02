@@ -109,7 +109,7 @@ const App = () => {
   // Filter subfolders based on selection
   const filteredFolders =
     currentFolderId === "all"
-      ? []
+      ? folders.filter((f) => f.parentId == null)
       : folders.filter((f) => f.parentId === currentFolderId);
 
   // Clear selection when changing folders to avoid confusion
