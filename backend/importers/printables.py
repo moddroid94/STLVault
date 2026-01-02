@@ -139,9 +139,6 @@ fragment Error on ErrorType {
 
 class PrintablesImporter():
     '''Handles the import from printables site
-    The site returns a list of models for a given url, right now we only download the first.
-    we should show a modal containing the options and a tickbox to allow importing multiple files
-    and handle the response accordingly
     '''
     def __init__(self):
         self.session: requests.Session
@@ -197,7 +194,7 @@ class PrintablesImporter():
                     "name": model["name"],
                     "folder": model["folder"],
                     "previewPath": "https://files.printables.com/" + model["filePreviewPath"],
-                    "typeName": "stl",
+                    "typeName": model["name"].split(".")[-1],
                   }
                 )
             return modelCollection
@@ -242,19 +239,22 @@ class PrintablesImporter():
             return file
     
     def _make_thumbnail(self, url):
-        fileheader = {
-                "accept": "image/*, application/json, text/event-stream, multipart/mixed",
-                "accept-language": "en",
-                "client-uid" : self.clientId,
-                "cache-control": "no-cache",
-                "pragma": "no-cache",
-                "priority": "u=1, i",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        if len(url) > 5:
+            fileheader = {
+                  "accept": "image/*, application/json, text/event-stream, multipart/mixed",
+                  "accept-language": "en",
+                  "client-uid" : self.clientId,
+                  "cache-control": "no-cache",
+                  "pragma": "no-cache",
+                  "priority": "u=1, i",
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
             }
-        file = self.session.get(url, allow_redirects=True, headers=fileheader)
-        encoded_string = base64.b64encode(file.content)
-        return "data:image/png;base64," + encoded_string.decode()
-
+            file = self.session.get(url, allow_redirects=True, headers=fileheader)
+            encoded_string = base64.b64encode(file.content)
+            return "data:image/png;base64," + encoded_string.decode()
+        
+        return ""
+    
     def importfromId(self, modelId, parentId, previewPath):
         self.session = requests.Session()
         try:

@@ -333,6 +333,7 @@ const App = () => {
 
     setIsLoading(true);
     setShowImportOptionsModal(false);
+    setUploadQueue((prev) => prev + selectedOptions.size);
     try {
       for (const model of modelsOptions) {
         if (selectedOptions.has(model.id)) {
@@ -343,6 +344,7 @@ const App = () => {
             model.previewPath,
             importFolderId
           );
+          setUploadQueue((prev) => prev - 1);
           setModels((prev) => [newModel, ...prev]);
         }
       }

@@ -377,6 +377,50 @@ def bulk_tag(payload: dict):
     return {"ok": True}
 
 
+@app.put("/api/models/{model_id}/file")
+def replace_model_file(
+    model_id: str, file: UploadFile = File(...), thumbnail: Optional[str] = Form(None)
+):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    if not m:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Model not found")
+    # remove existing files that start with model_id
+    for fname in os.listdir(UPLOAD_DIR):
+        if fname.startswith(model_id):
+            try:
+                os.remove(os.path.join(UPLOAD_DIR, fname))
+            except Exception:
+                pass
+
+    filename_str = file.filename or ".stl"
+    ext = os.path.splitext(filename_str)[1] or ".stl"
+    filename = f"{model_id}{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+    size = save_upload_file(file, path)
+
+    cur.execute(
+        "UPDATE models SET url=?, size=?, thumbnail=? WHERE id=?",
+        (f"/api/models/{model_id}/download", size, thumbnail, model_id),
+    )
+    conn.commit()
+    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    conn.close()
+    return row_to_model(row)
+
+
+@app.get("/api/storage-stats")
+def storage_stats():
+    used = 0
+    for fname in os.listdir(UPLOAD_DIR):
+        used += os.path.getsize(os.path.join(UPLOAD_DIR, fname))
+    total = 5 * 1024 * 1024 * 1024
+    return {"used": used, "total": total}
+
+
+## PRINTABLES IMPORTS
 @app.post("/api/printables/importid")
 def import_model_by_id(payload: dict):
     importer = printables.PrintablesImporter()
@@ -385,10 +429,11 @@ def import_model_by_id(payload: dict):
     parentId = payload.get("parentId")
     previewPath = payload.get("previewPath")
     folderId = payload.get("folderId", "1")
+    typeName = payload.get("typeName")
     mid = str(uuid.uuid4())
     
     # we only save stl for now
-    ext = ".stl"
+    ext = typeName if typeName is not None else ".stl"
     
     filename = f"{mid}{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
@@ -456,49 +501,6 @@ def import_model_options(payload: dict):
         raise ValueError("URL is None")
     except Exception as e:
         raise e
-
-
-@app.put("/api/models/{model_id}/file")
-def replace_model_file(
-    model_id: str, file: UploadFile = File(...), thumbnail: Optional[str] = Form(None)
-):
-    conn = get_db_conn()
-    cur = conn.cursor()
-    m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
-    if not m:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Model not found")
-    # remove existing files that start with model_id
-    for fname in os.listdir(UPLOAD_DIR):
-        if fname.startswith(model_id):
-            try:
-                os.remove(os.path.join(UPLOAD_DIR, fname))
-            except Exception:
-                pass
-
-    filename_str = file.filename or ".stl"
-    ext = os.path.splitext(filename_str)[1] or ".stl"
-    filename = f"{model_id}{ext}"
-    path = os.path.join(UPLOAD_DIR, filename)
-    size = save_upload_file(file, path)
-
-    cur.execute(
-        "UPDATE models SET url=?, size=?, thumbnail=? WHERE id=?",
-        (f"/api/models/{model_id}/download", size, thumbnail, model_id),
-    )
-    conn.commit()
-    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
-    conn.close()
-    return row_to_model(row)
-
-
-@app.get("/api/storage-stats")
-def storage_stats():
-    used = 0
-    for fname in os.listdir(UPLOAD_DIR):
-        used += os.path.getsize(os.path.join(UPLOAD_DIR, fname))
-    total = 5 * 1024 * 1024 * 1024
-    return {"used": used, "total": total}
 
 
 if __name__ == "__main__":
