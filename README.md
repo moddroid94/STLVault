@@ -19,14 +19,13 @@
 
 - **📂 Nestable Folders:** Organize your models into a deep hierarchy that makes sense to you.
 - **🪄 Open in Slicer:** Let's you open the model direclty in your slicer.
-- **🔗 Import multiple files from URL, with granular file selection. (Printables*)
+- **🔗 Import multiple files from Printables URL, with granular file selection. (Only models URL, not collections)
 - **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
 - **👁️ 3D Preview:** Integrated web-based 3D viewer for STL and 3MF files.
 - **🏷️ Metadata Management:** Add tags, descriptions, and metadata to your models for easy retrieval.
 - **🔍 Global Search:** Sidebar search and filtering to find models library-wide.
 
-* - Does not support collections, only models URL
 ---
 
 ## 🛠️ Tech Stack
