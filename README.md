@@ -1,17 +1,21 @@
 ![logo](https://github.com/moddroid94/STLVault/blob/main/frontend/assets/android-chrome-192x192.png)
 # STLVault 
 
-![Project Status](https://img.shields.io/badge/Status-Work_In_Progress-orange?style=for-the-badge)
+![Project Status](https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge)
 ![GitHub Release](https://img.shields.io/github/v/release/moddroid94/STLVault?display_name=release&style=for-the-badge&logo=github)
+![GitHub Repo stars](https://img.shields.io/github/stars/moddroid94/STLVault?style=for-the-badge&logo=github)
 
-[![Docker Frontend CI](https://img.shields.io/github/actions/workflow/status/moddroid94/STLVault/Docker%20Frontend%20CI.yml?style=for-the-badge&logo=docker)](https://github.com/moddroid94/STLVault/actions/workflows/Docker%20Frontend%20CI.yml)
-![Docker Pulls](https://img.shields.io/docker/pulls/moddroid94/stlvault-frontend?style=for-the-badge&logo=docker)
+[![Docker Frontend CI](https://img.shields.io/github/actions/workflow/status/moddroid94/STLVault/Docker%20Frontend%20CI.yml?style=for-the-badge&logo=docker&label=Frontend)](https://github.com/moddroid94/STLVault/actions/workflows/Docker%20Frontend%20CI.yml)
+[![Docker Frontend CI](https://img.shields.io/github/actions/workflow/status/moddroid94/STLVault/Docker%20Backend%20CI.yml?style=for-the-badge&logo=docker&label=Backend)](https://github.com/moddroid94/STLVault/actions/workflows/Docker%20Backend%20CI.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/moddroid94/stlvault-frontend?style=for-the-badge&logo=docker)](https://hub.docker.com/u/moddroid94)
 
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
+
+
 **STLVault** is a containerized 3D Model library manager and organizer, designed specifically for 3D printing enthusiasts. It provides a clean, modern web interface to manage your growing collection of STL, STEP, and 3MF files.
 
-> **Note:** This project is currently **Heavily Work In Progress (WIP)**. While the core functionality (importing, organizing, viewing) works, expect changes and improvements.
+> **Note:** This project is currently in Beta. While the core functionality (importing, organizing, viewing) works, expect changes and improvements.
 
 ---
 
@@ -51,6 +55,8 @@
 ## 🚀 Deployment
 
 The recommended way to deploy STLVault is using **Docker Compose** or via a container management tool like **Portainer**.
+
+Images are available on docker-hub if you prefer, instead of cloning the repo just replace the build steps with the image.
 
 ### Option 1: Docker Compose (CLI)
 
