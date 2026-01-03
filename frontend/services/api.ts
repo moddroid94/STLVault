@@ -1,9 +1,17 @@
-import { Folder, STLModel, StorageStats } from "../types";
+import { Folder, STLModel, StorageStats, STLModelCollection } from "../types";
 import { v4 as uuidv4 } from "uuid";
 
 // Set this to FALSE to use a real backend server
 const USE_MOCK_API = false;
-const API_BASE_URL = import.meta.env.VITE_APP_API + "/api";
+const API_BASE_ = "http://192.168.178.21:5174/api";
+let API_BASE_URL = "";
+
+if (import.meta.env.VITE_APP_API == undefined) {
+  API_BASE_URL = "http://192.168.178.21:5174/api";
+} else {
+  const url = import.meta.env.VITE_APP_API + "/api";
+  API_BASE_URL = url;
+}
 
 // Mock Data Store (for demonstration without a real backend)
 const getMockStore = () => {
@@ -249,20 +257,22 @@ export const api = {
   //9b. GET slicer Weblink
   getSlicerUrl: (model: STLModel) => {
     if (USE_MOCK_API) return model.url;
-    
+
     const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
-    
+
     // Get user's preferred slicer from localStorage
-    const slicerPreference = localStorage.getItem('stlvault-slicer') || 'orcaslicer';
-    
+    const slicerPreference =
+      localStorage.getItem("stlvault-slicer") || "orcaslicer";
+
     const slicerProtocols: Record<string, string> = {
-      'orcaslicer': 'orcaslicer://open?file=',
-      'prusaslicer': 'prusaslicer://open?file=',
-      'bambu': 'bambustudio://open?file=',
-      'cura': 'cura://open?file='
+      orcaslicer: "orcaslicer://open?file=",
+      prusaslicer: "prusaslicer://open?file=",
+      bambu: "bambustudio://open?file=",
+      cura: "cura://open?file=",
     };
-    
-    const protocol = slicerProtocols[slicerPreference] || slicerProtocols['orcaslicer'];
+
+    const protocol =
+      slicerProtocols[slicerPreference] || slicerProtocols["orcaslicer"];
     return `${protocol}${modelURL}`;
   },
 
@@ -329,62 +339,29 @@ export const api = {
     if (!res.ok) throw new Error("Bulk tag failed");
   },
 
-  // 13. IMPORT FROM URL
-  importModelFromUrl: async (
-    url: string,
-    folderId: string
-  ): Promise<STLModel> => {
-    if (USE_MOCK_API) {
-      await new Promise((r) => setTimeout(r, 1500)); // Simulate processing
-
-      let name = "Imported Model";
-      let description = `Imported from ${url}`;
-
-      // Simple parsing logic for Printables to make it look real
-      if (url.includes("printables.com")) {
-        const parts = url.split("/");
-        // Example: /model/12345-my-cool-model
-        const modelPart = parts.find((p) => /^\d+-.+/.test(p));
-        if (modelPart) {
-          // Remove ID prefix and replace dashes
-          name = modelPart.replace(/^\d+-/, "").replace(/-/g, " ");
-          // Capitalize words
-          name = name.replace(/\b\w/g, (l) => l.toUpperCase());
-        }
-      }
-
-      const store = getMockStore();
-
-      // Create a valid minimal binary STL blob to prevent Viewer crash
-      // 80 bytes header + 4 bytes count (0 triangles)
-      const header = new Uint8Array(80);
-      const count = new Uint32Array([0]); // 4 bytes representing 0
-      // Blob constructor handles the merging of these arrays
-      const mockBlob = new Blob([header, count], {
-        type: "application/octet-stream",
-      });
-      const fakeUrl = URL.createObjectURL(mockBlob);
-
-      const newModel: STLModel = {
-        id: uuidv4(),
-        name: `${name}.stl`, // Append extension so UI treats it as a file
-        folderId: folderId === "all" ? "1" : folderId,
-        url: fakeUrl,
-        size: mockBlob.size,
-        dateAdded: Date.now(),
-        tags: ["imported", "web"],
-        description: description,
-      };
-
-      store.models.push(newModel);
-      saveMockStore(store);
-      return newModel;
-    }
-
-    const res = await fetch(`${API_BASE_URL}/models/import`, {
+  // 13. RETRIEVE MODEL OPTIONS
+  retrieveModelOptions: async (url: string): Promise<STLModelCollection[]> => {
+    const res = await fetch(`${API_BASE_URL}/printables/options`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, folderId }),
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) throw new Error("Import failed");
+    return res.json();
+  },
+
+  // 13. IMPORT FROM URL
+  importModelFromId: async (
+    id: string,
+    name: string,
+    parentId: string,
+    previewPath: string,
+    folderId: string
+  ): Promise<STLModel> => {
+    const res = await fetch(`${API_BASE_URL}/printables/importid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name, parentId, previewPath, folderId }),
     });
     if (!res.ok) throw new Error("Import failed");
     return res.json();

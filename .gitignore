@@ -43,7 +43,7 @@ bun.lock
 
 # Backend
 /backend/__pycache__/
-/backend/app/uploads/
+/backend/app/*
 /backend/data/
 /backend/*.db
 /backend/uploads/

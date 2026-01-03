@@ -16,7 +16,9 @@ import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel
-import requests
+
+
+from importers import printables
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
@@ -375,72 +377,6 @@ def bulk_tag(payload: dict):
     return {"ok": True}
 
 
-@app.post("/api/models/import")
-def import_model(payload: dict):
-    url = payload.get("url")
-    folderId = payload.get("folderId", "1")
-    mid = str(uuid.uuid4())
-    
-    # check if url is not None before calling split on it and provide a default extension if it is None
-    if url:
-        ext = os.path.splitext(url.split("?")[0])[1] or ".stl"
-    else:
-        ext = ".stl"
-    
-    filename = f"{mid}{ext}"
-    path = os.path.join(UPLOAD_DIR, filename)
-
-    # Check if url is not None before calling requests.get(url, ...)
-    try:
-        if url is not None:
-            r = requests.get(url, timeout=10)
-            r.raise_for_status()
-            with open(path, "wb") as fh:
-                fh.write(r.content)
-            size = os.path.getsize(path)
-        else:
-            raise ValueError("URL is None")
-    except Exception:
-        # create empty valid binary STL (80 byte header + 4 byte count)
-        header = bytes(80)
-        count = (0).to_bytes(4, "little")
-        with open(path, "wb") as fh:
-            fh.write(header)
-            fh.write(count)
-        size = os.path.getsize(path)
-
-    model = {
-        "id": mid,
-        "name": os.path.basename(filename),
-        "folderId": folderId if folderId != "all" else "1",
-        "url": f"/api/models/{mid}/download",
-        "size": size,
-        "dateAdded": now_ms(),
-        "tags": ["imported"],
-        "description": f"Imported from {url}",
-    }
-
-    conn = get_db_conn()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO models(id,name,folderId,url,size,dateAdded,tags,description,thumbnail) VALUES (?,?,?,?,?,?,?,?,?)",
-        (
-            model["id"],
-            model["name"],
-            model["folderId"],
-            model["url"],
-            model["size"],
-            model["dateAdded"],
-            json.dumps(model["tags"]),
-            model["description"],
-            None,
-        ),
-    )
-    conn.commit()
-    conn.close()
-    return model
-
-
 @app.put("/api/models/{model_id}/file")
 def replace_model_file(
     model_id: str, file: UploadFile = File(...), thumbnail: Optional[str] = Form(None)
@@ -482,6 +418,89 @@ def storage_stats():
         used += os.path.getsize(os.path.join(UPLOAD_DIR, fname))
     total = 5 * 1024 * 1024 * 1024
     return {"used": used, "total": total}
+
+
+## PRINTABLES IMPORTS
+@app.post("/api/printables/importid")
+def import_model_by_id(payload: dict):
+    importer = printables.PrintablesImporter()
+    modelId = payload.get("id")
+    modelName = payload.get("name")
+    parentId = payload.get("parentId")
+    previewPath = payload.get("previewPath")
+    folderId = payload.get("folderId", "1")
+    typeName = payload.get("typeName")
+    mid = str(uuid.uuid4())
+    
+    # we only save stl for now
+    ext = typeName if typeName is not None else ".stl"
+    
+    filename = f"{mid}{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+
+    # Check if url is not None before calling importer
+    try:
+        if modelId is not None:
+            file, thumbnail = importer.importfromId(modelId, parentId, previewPath)
+            if file is not None:
+                with open(path, "wb") as fh:
+                    fh.write(file.content)
+                size = os.path.getsize(path)
+            else:
+                raise ValueError("File Is Empty")
+        else:
+            raise ValueError("URL is None")
+    except Exception as e:
+        raise e
+
+    model = {
+        "id": mid,
+        "name": modelName,
+        "folderId": folderId if folderId != "all" else "1",
+        "url": f"/api/models/{mid}/download",
+        "size": size,
+        "dateAdded": now_ms(),
+        "tags": ["imported"],
+        "description": "Imported from Printables",
+        "thumbnail": thumbnail
+    }
+
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO models(id,name,folderId,url,size,dateAdded,tags,description,thumbnail) VALUES (?,?,?,?,?,?,?,?,?)",
+        (
+            model["id"],
+            model["name"],
+            model["folderId"],
+            model["url"],
+            model["size"],
+            model["dateAdded"],
+            json.dumps(model["tags"]),
+            model["description"],
+            model["thumbnail"],
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return model
+
+
+@app.post("/api/printables/options")
+def import_model_options(payload: dict):
+    importer = printables.PrintablesImporter()
+    url = payload.get("url")
+
+    # Check if url is not None before calling importer
+    try:
+        if url is not None:
+            modelData = importer.getModelOptions(url)
+            if modelData is not None:
+                return modelData
+            raise ValueError("Collection Is Empty")
+        raise ValueError("URL is None")
+    except Exception as e:
+        raise e
 
 
 if __name__ == "__main__":
