@@ -17,8 +17,8 @@ import * as THREE from "three";
 
 let API_BASE_URL = "";
 
-if (import.meta.env.VITE_APP_API == undefined) {
-  API_BASE_URL = "http://192.168.178.21:5174";
+if (localStorage.getItem("api-port-override")) {
+  API_BASE_URL = localStorage.getItem("api-port-override");
 } else {
   const url = import.meta.env.VITE_APP_API;
   API_BASE_URL = url;
