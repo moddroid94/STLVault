@@ -181,12 +181,13 @@ export const api = {
     name: string,
     parentId: string,
     previewPath: string,
-    folderId: string
+    folderId: string,
+    typeName: string,
   ): Promise<STLModel> => {
     const res = await fetch(`${API_BASE_URL}/printables/importid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, parentId, previewPath, folderId }),
+      body: JSON.stringify({ id, name, parentId, previewPath, folderId, typeName }),
     });
     if (!res.ok) throw new Error("Import failed");
     return res.json();

@@ -342,7 +342,8 @@ const App = () => {
             model.name,
             model.parentId,
             model.previewPath,
-            importFolderId
+            importFolderId,
+            model.typeName
           );
           setUploadQueue((prev) => prev - 1);
           setModels((prev) => [newModel, ...prev]);
