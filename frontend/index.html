@@ -3,10 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
-    <link rel="manifest" href="assets/site.webmanifest">
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="assets/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="assets/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="assets/favicon-16x16.png"
+    />
+    <link rel="manifest" href="assets/site.webmanifest" />
     <title>STL Vault</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -15,37 +29,31 @@
           extend: {
             colors: {
               vault: {
-                900: '#0f172a',
-                800: '#1e293b',
-                700: '#334155',
-                600: '#475569',
-                accent: '#3b82f6',
-              }
+                900: "#0f172a",
+                800: "#1e293b",
+                700: "#334155",
+                600: "#475569",
+                accent: "#3b82f6",
+              },
             },
             screens: {
-              'xs': '475px',
-            }
-          }
-        }
-      }
+              xs: "475px",
+            },
+          },
+        },
+      };
     </script>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@react-three/fiber": "https://aistudiocdn.com/@react-three/fiber@^9.4.0",
-    "@react-three/drei": "https://aistudiocdn.com/@react-three/drei@^10.7.7",
-    "three/": "https://aistudiocdn.com/three@^0.181.2/",
-    "three": "https://aistudiocdn.com/three@^0.181.2",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
-    "jszip": "https://aistudiocdn.com/jszip@^3.10.1"
-  }
-}
-</script>
-</head>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
+  </head>
   <body class="bg-vault-900 text-slate-200 antialiased overflow-hidden">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

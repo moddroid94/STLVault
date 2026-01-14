@@ -12,9 +12,27 @@ import {
   Download,
   Globe,
   Folder as FolderIcon,
+  DownloadIcon,
+  ScreenShareIcon,
 } from "lucide-react";
 import { STLModel, Folder } from "../types";
 import { api } from "../services/api";
+
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import CardActionArea from "@mui/material/CardActionArea";
+import CardActions from "@mui/material/CardActions";
+import Chip from "@mui/material/Chip";
+import { String } from "three/examples/jsm/transpiler/AST.js";
+import { IconButton } from "@mui/material";
+import Tooltip from "@mui/material/Tooltip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Divider from "@mui/material/Divider";
+import Checkbox from "@mui/material/Checkbox";
 
 interface ModelListProps {
   models: STLModel[];
@@ -71,12 +89,9 @@ const ModelList: React.FC<ModelListProps> = ({
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
   // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setActiveMenuModelId(null);
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -345,7 +360,8 @@ const ModelList: React.FC<ModelListProps> = ({
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 pb-5">
+          {/* Folders */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 pb-5">
             {/* Render Folders First */}
             {processedFolders.map((folder) => (
               <div
@@ -385,7 +401,8 @@ const ModelList: React.FC<ModelListProps> = ({
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 pb-24">
+          {/* Files */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 pb-24">
             {/* Render Models */}
             {processedModels.map((model) => {
               const isSelected = selectedIds.has(model.id);
@@ -396,7 +413,6 @@ const ModelList: React.FC<ModelListProps> = ({
                   key={model.id}
                   draggable={true}
                   onDragStart={(e) => handleCardDragStart(e, model.id)}
-                  style={{ zIndex: isMenuOpen ? 20 : "auto" }}
                   onClick={() => {
                     if (selectionMode) {
                       onToggleSelection(model.id);
@@ -404,142 +420,168 @@ const ModelList: React.FC<ModelListProps> = ({
                       onSelectModel(model);
                     }
                   }}
-                  className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing ${
+                  className={`group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing ${
                     isSelected || selectedModelId === model.id
                       ? "border-blue-500 ring-1 ring-blue-500/50"
                       : "border-vault-700 hover:border-vault-600"
                   }`}
                 >
-                  {/* Selection Checkbox */}
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelection(model.id);
-                    }}
-                    className={`absolute top-4 left-4 z-10 rounded bg-vault-900/80 backdrop-blur-sm transition-opacity duration-200 p-1
-                    ${
-                      isSelected || selectionMode
-                        ? "opacity-100"
-                        : "opacity-0 group-hover:opacity-100"
-                    }`}
-                  >
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5 text-blue-500" />
-                    ) : (
-                      <Square className="w-5 h-5 text-slate-400 hover:text-white" />
-                    )}
-                  </div>
-
-                  <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden pointer-events-none">
-                    {/* Thumbnail or Placeholder */}
-                    {model.thumbnail ? (
-                      <img
-                        src={model.thumbnail}
-                        alt={model.name}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                      />
-                    ) : (
-                      <>
-                        <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
-                        <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
-                      </>
-                    )}
-
-                    {/* Badges */}
-                    <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end max-w-[80%]">
-                      {model.tags.slice(0, 2).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-sm bg-black/60 text-slate-300 px-2 pb-0.5 rounded-md backdrop-blur-sm truncate max-w-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {model.tags.length > 2 && (
-                        <span className="text-xs bg-black/60 text-slate-300 px-2 pt-0.5 rounded-md backdrop-blur-sm">
-                          +{model.tags.length - 2}
-                        </span>
+                  <Card>
+                    <CardActionArea>
+                      {model.thumbnail ? (
+                        <CardMedia
+                          component="div"
+                          className="h-60 object-cover"
+                          image={model.thumbnail}
+                        />
+                      ) : (
+                        <>
+                          <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
+                          <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
+                        </>
                       )}
-                    </div>
-
-                    {/* File Type Badge */}
-                    <div className="absolute bottom-2 left-2">
-                      <span className="text-sm bg-blue-600/80 text-white px-1.5 py-0.5 rounded uppercase font-medium shadow-sm">
-                        {model.name.split(".").pop()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <h3
-                        className="font-semibold text-slate-200 truncate mb-1"
-                        title={model.name}
-                      >
-                        {model.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          {(model.size / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          {new Date(model.dateAdded).toLocaleDateString()}
-                        </span>
+                      <div className="absolute bottom-[5.2rem] left-2 flex flex-wrap gap-1 justify-end max-w-[80%]">
+                        {model.tags.slice(0, 2).map((tag) => (
+                          <Chip
+                            sx={{
+                              borderRadius: 1,
+                            }}
+                            label={tag}
+                            key={tag}
+                            color="primary"
+                            size="small"
+                          />
+                        ))}
+                        {model.tags.length > 2 && (
+                          <Chip
+                            sx={{
+                              borderRadius: 1,
+                            }}
+                            label={`+${model.tags.length - 2}`}
+                            color="secondary"
+                            size="small"
+                          />
+                        )}
                       </div>
-                    </div>
-
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuModelId(isMenuOpen ? null : model.id);
-                        }}
-                        className="text-slate-500 hover:text-white p-1 rounded hover:bg-vault-800 transition-colors"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      {isMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-32 bg-vault-800 border border-vault-600 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
-                          <button
+                      <div className="absolute top-2 right-2">
+                        <Chip
+                          sx={{
+                            borderRadius: 1,
+                            fontWeight: "medium",
+                          }}
+                          label={model.name.split(".").pop().toUpperCase()}
+                          color="info"
+                          size="small"
+                        />
+                      </div>
+                      <CardContent>
+                        <Typography gutterBottom variant="body1" noWrap={true}>
+                          {model.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "text.secondary" }}
+                        >
+                          {(model.size / (1024 * 1024)).toFixed(2)}
+                          {" MB  • "}
+                          {new Date(model.dateAdded).toLocaleDateString()}
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                    <CardActions>
+                      <Tooltip title="Download">
+                        <IconButton
+                          aria-label="download"
+                          href={api.getDownloadUrl(model)}
+                        >
+                          <DownloadIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Open in Slicer">
+                        <IconButton
+                          aria-label="open in slicer"
+                          href={api.getSlicerUrl(model)}
+                        >
+                          <ScreenShareIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <div className="absolute right-2">
+                        <IconButton
+                          id={`fade-button-${model.id}`}
+                          aria-controls={
+                            isMenuOpen ? `fade-menu-${model.id}` : undefined
+                          }
+                          aria-haspopup="true"
+                          aria-expanded={isMenuOpen ? "true" : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAnchorEl(e.currentTarget);
+                            setActiveMenuModelId(isMenuOpen ? null : model.id);
+                          }}
+                        >
+                          <MoreVertical />
+                        </IconButton>
+                        <Menu
+                          id={`fade-menu-${model.id}`}
+                          anchorEl={anchorEl}
+                          open={isMenuOpen}
+                          onClose={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuModelId(null);
+                          }}
+                          anchorOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                          transformOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                        >
+                          <MenuItem
                             onClick={(e) => {
-                              e.stopPropagation();
                               onSelectModel(model);
                               setActiveMenuModelId(null);
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-vault-700 hover:text-white flex items-center gap-2"
                           >
-                            <ExternalLink className="w-3 h-3" /> Open
-                          </button>
-
-                          <a
-                            href={api.getDownloadUrl(model)}
-                            download={model.name}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuModelId(null);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-vault-700 hover:text-white flex items-center gap-2"
-                          >
-                            <Download className="w-3 h-3" /> Download
-                          </a>
-
-                          <button
+                            Open
+                          </MenuItem>
+                          <Divider />
+                          <MenuItem
+                            sx={{ color: "#dd3434ff" }}
                             onClick={(e) => {
                               e.stopPropagation();
                               // Call delete FIRST to ensure propagation isn't cut off by component unmounting if list updates
                               onDelete(model.id);
                               setActiveMenuModelId(null);
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center gap-2"
                           >
-                            <Trash2 className="w-3 h-3" /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                            Delete
+                          </MenuItem>
+                        </Menu>
+                      </div>
+                    </CardActions>
+                  </Card>
+                  {/* Selection Checkbox */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSelection(model.id);
+                    }}
+                    className={`absolute top-2 left-2 z-10 rounded backdrop-blur-sm transition-opacity duration-200
+                    ${
+                      isSelected || selectionMode
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={null}
+                      slotProps={{
+                        input: { "aria-label": "controlled" },
+                      }}
+                    />
                   </div>
                 </div>
               );
