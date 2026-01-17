@@ -20,9 +20,10 @@ import {
 import JSZip from "jszip";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useVisualViewport } from "./hooks/useVisualViewport";
-
+import Snackbar, { SnackbarCloseReason } from "@mui/material/Snackbar";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import Alert from "@mui/material/Alert";
 
 const App = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)", true);
@@ -67,7 +68,7 @@ const App = () => {
   const [modelsOptions, setModelsOptions] = useState<STLModelCollection[]>([]);
   const [folderOptions, setFolderOptions] = useState<Set<string>>(new Set());
   const [selectedOptions, setSelectedOptions] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [importUrl, setImportUrl] = useState("");
   const [importFolderId, setImportFolderId] = useState("");
@@ -85,7 +86,7 @@ const App = () => {
       setIsLoading(true);
       try {
         const [fetchedFolders, fetchedModels, fetchedStats] = await Promise.all(
-          [api.getFolders(), api.getModels("all"), api.getStorageStats()]
+          [api.getFolders(), api.getModels("all"), api.getStorageStats()],
         );
         setFolders(fetchedFolders);
         setModels(fetchedModels);
@@ -98,7 +99,10 @@ const App = () => {
     };
     fetchData();
   }, []);
-
+  const port = localStorage.getItem("api-port-override");
+  if (!port) {
+    alert("API Host Not Set");
+  }
   // Refresh storage stats when models change (upload, delete, replace)
   useEffect(() => {
     api
@@ -142,7 +146,7 @@ const App = () => {
       setIsMobileSidebarVisible(false);
       timeoutId = window.setTimeout(
         () => setIsMobileSidebarMounted(false),
-        transitionMs
+        transitionMs,
       );
     }
 
@@ -178,7 +182,7 @@ const App = () => {
 
   const handleCreateFolder = async (
     name: string,
-    parentId: string | null = null
+    parentId: string | null = null,
   ) => {
     try {
       const newFolder = await api.createFolder(name, parentId);
@@ -193,7 +197,7 @@ const App = () => {
     try {
       await api.updateFolder(id, newName);
       setFolders((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, name: newName } : f))
+        prev.map((f) => (f.id === id ? { ...f, name: newName } : f)),
       );
     } catch (error) {
       console.error("Failed to rename folder", error);
@@ -206,7 +210,7 @@ const App = () => {
 
     if (hasModels || hasSubfolders) {
       alert(
-        "Folder must be empty to delete. Please delete or move all models and subfolders first."
+        "Folder must be empty to delete. Please delete or move all models and subfolders first.",
       );
       return;
     }
@@ -217,7 +221,7 @@ const App = () => {
   const executeUpload = async (
     files: File[],
     targetFolderId: string,
-    tags: string[]
+    tags: string[],
   ) => {
     setUploadQueue((prev) => prev + files.length);
 
@@ -230,7 +234,7 @@ const App = () => {
             thumbnail = await generateThumbnail(file);
           } catch (e) {
             console.warn(
-              "Thumbnail generation failed, uploading without thumbnail"
+              "Thumbnail generation failed, uploading without thumbnail",
             );
           }
         }
@@ -239,7 +243,7 @@ const App = () => {
           file,
           targetFolderId,
           thumbnail,
-          tags
+          tags,
         );
         setModels((prev) => [newModel, ...prev]);
       } catch (error) {
@@ -252,7 +256,7 @@ const App = () => {
 
   const handleUpload = async (
     fileList: FileList,
-    specificFolderId?: string
+    specificFolderId?: string,
   ) => {
     const files = Array.from(fileList);
 
@@ -298,7 +302,7 @@ const App = () => {
     setModelsOptions([]);
     // Pre-select current folder if specific, otherwise first available
     setImportFolderId(
-      currentFolderId !== "all" ? currentFolderId : folders[0]?.id || ""
+      currentFolderId !== "all" ? currentFolderId : folders[0]?.id || "",
     );
     setShowImportModal(true);
   };
@@ -350,7 +354,7 @@ const App = () => {
             model.parentId,
             model.previewPath,
             importFolderId,
-            model.typeName
+            model.typeName,
           );
           setUploadQueue((prev) => prev - 1);
           setModels((prev) => [newModel, ...prev]);
@@ -367,7 +371,7 @@ const App = () => {
   const handleUpdateModel = async (id: string, updates: Partial<STLModel>) => {
     try {
       setModels((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
+        prev.map((m) => (m.id === id ? { ...m, ...updates } : m)),
       );
       await api.updateModel(id, updates);
     } catch (error) {
@@ -441,8 +445,8 @@ const App = () => {
       await api.bulkMoveModels(ids, targetFolderId);
       setModels((prev) =>
         prev.map((m) =>
-          selectedIds.has(m.id) ? { ...m, folderId: targetFolderId } : m
-        )
+          selectedIds.has(m.id) ? { ...m, folderId: targetFolderId } : m,
+        ),
       );
       setShowMoveModal(false);
       setSelectedIds(new Set());
@@ -456,8 +460,8 @@ const App = () => {
       await api.bulkMoveModels(modelIds, targetFolderId);
       setModels((prev) =>
         prev.map((m) =>
-          modelIds.includes(m.id) ? { ...m, folderId: targetFolderId } : m
-        )
+          modelIds.includes(m.id) ? { ...m, folderId: targetFolderId } : m,
+        ),
       );
       setSelectedIds(new Set());
     } catch (e) {
@@ -480,7 +484,7 @@ const App = () => {
             return { ...m, tags: [...new Set([...m.tags, ...tags])] };
           }
           return m;
-        })
+        }),
       );
       setShowTagModal(false);
       setSelectedIds(new Set());
@@ -779,7 +783,7 @@ const App = () => {
                         (visualViewport.height ||
                           (typeof window !== "undefined"
                             ? window.innerHeight
-                            : 0)) - 32
+                            : 0)) - 32,
                       ),
                     }}
                   >
@@ -885,7 +889,7 @@ const App = () => {
                         (visualViewport.height ||
                           (typeof window !== "undefined"
                             ? window.innerHeight
-                            : 0)) - 32
+                            : 0)) - 32,
                       ),
                     }}
                   >
@@ -984,7 +988,7 @@ const App = () => {
                         (visualViewport.height ||
                           (typeof window !== "undefined"
                             ? window.innerHeight
-                            : 0)) - 32
+                            : 0)) - 32,
                       ),
                     }}
                   >
@@ -1087,7 +1091,7 @@ const App = () => {
                         (visualViewport.height ||
                           (typeof window !== "undefined"
                             ? window.innerHeight
-                            : 0)) - 32
+                            : 0)) - 32,
                       ),
                     }}
                   >
@@ -1152,7 +1156,7 @@ const App = () => {
                         (visualViewport.height ||
                           (typeof window !== "undefined"
                             ? window.innerHeight
-                            : 0)) - 32
+                            : 0)) - 32,
                       ),
                     }}
                   >
@@ -1203,7 +1207,7 @@ const App = () => {
                         (visualViewport.height ||
                           (typeof window !== "undefined"
                             ? window.innerHeight
-                            : 0)) - 32
+                            : 0)) - 32,
                       ),
                     }}
                   >
@@ -1252,6 +1256,16 @@ const App = () => {
             </main>
           </>
         )}
+        <Snackbar
+          open={!port ? true : false}
+          autoHideDuration={6000}
+          message="API Host Not Set"
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Alert severity="error" variant="filled" sx={{ width: "100%" }}>
+            API Host Not Set
+          </Alert>
+        </Snackbar>
       </div>
     </ThemeProvider>
   );
