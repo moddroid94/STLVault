@@ -297,6 +297,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={onPlusClick}
             aria-label="select item"
             size="small"
+            sx={{ color: 'grey.300' }}
           >
             <PlusIcon />
           </IconButton>
@@ -305,6 +306,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             aria-label="select item"
             size="small"
             edge="end"
+            sx={{ color: 'grey.300' }}
           >
             <Trash2 />
           </IconButton>

@@ -65,7 +65,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="flex-1 p-4 sm:p-8 h-full overflow-y-auto bg-vault-800 relative flex flex-col">
+    <div className="flex-1 p-4 sm:p-8 h-full overflow-y-auto relative flex flex-col">
       {/* Header Section */}
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex items-center gap-4">
