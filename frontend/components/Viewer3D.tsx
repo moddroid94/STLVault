@@ -9,10 +9,17 @@ import React, {
   Component,
 } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
-import { OrbitControls, Stage, Grid, Center, Html } from "@react-three/drei";
+import {
+  OrbitControls,
+  Stage,
+  Grid,
+  Center,
+  Html,
+  TrackballControls,
+} from "@react-three/drei";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
-import { Maximize, Minimize, FileWarning } from "lucide-react";
+import { Maximize, Minimize, FileWarning, Rotate3d, Orbit } from "lucide-react";
 import * as THREE from "three";
 import { LoadStep } from "./STEPLoader";
 
@@ -182,6 +189,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
   const [error, setError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [orbitMode, SetOrbitMode] = useState(true);
 
   const unsupportedFormat = useMemo(() => {
     const lower = filename.toLowerCase();
@@ -289,7 +297,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
           sectionColor="#475569"
           cellColor="#334155"
         />
-        <OrbitControls makeDefault autoRotate autoRotateSpeed={0.5} />
+        {!orbitMode ? <TrackballControls /> : <OrbitControls />}
       </Canvas>
 
       {/* Controls Overlay */}
@@ -306,7 +314,15 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
           )}
         </button>
       </div>
-
+      <div className="absolute bottom-10 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <button
+          onClick={() => SetOrbitMode(!orbitMode)}
+          className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg backdrop-blur-sm transition-colors"
+          title={isFullscreen ? "Orbit Control" : "Free Rotate"}
+        >
+          {orbitMode ? <Rotate3d /> : <Orbit />}
+        </button>
+      </div>
       <div className="absolute bottom-4 right-4 bg-black/50 px-3 py-1 rounded text-xs text-slate-300 pointer-events-none">
         LMB: Rotate | RMB: Pan | Scroll: Zoom
       </div>

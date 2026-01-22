@@ -100,9 +100,7 @@ const App = () => {
     fetchData();
   }, []);
   const port = localStorage.getItem("api-port-override");
-  if (!port) {
-    alert("API Host Not Set");
-  }
+
   // Refresh storage stats when models change (upload, delete, replace)
   useEffect(() => {
     api
