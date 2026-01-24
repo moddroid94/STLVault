@@ -1,12 +1,14 @@
-import path from 'path';
-import fs from 'fs';
-import { defineConfig, loadEnv } from 'vite';
-import react from '@vitejs/plugin-react';
+import path from "path";
+import fs from "fs";
+import { defineConfig, loadEnv } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
-  const pkgJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
-  const appVersion = env.VITE_APP_TAG || pkgJson.version || 'dev';
+  const env = loadEnv(mode, ".", "");
+  const pkgJson = JSON.parse(
+    fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+  );
+  const appVersion = env.VITE_APP_TAG || pkgJson.version || "dev";
   return {
     base: "/",
     preview: {
@@ -14,7 +16,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      host: '0.0.0.0',
+      host: "0.0.0.0",
     },
     plugins: [react()],
     define: {
@@ -22,8 +24,8 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
-      }
-    }
+        "@": path.resolve(__dirname, "."),
+      },
+    },
   };
 });

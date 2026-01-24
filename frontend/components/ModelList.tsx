@@ -3,22 +3,49 @@ import {
   CloudUpload,
   FileBox,
   Search,
-  ArrowUpDown,
   CheckSquare,
-  Square,
   MoreVertical,
-  Trash2,
   ExternalLink,
   Download,
   Globe,
   Folder as FolderIcon,
+  DownloadIcon,
+  ScreenShareIcon,
+  XCircle,
+  ChevronLeft,
 } from "lucide-react";
 import { STLModel, Folder } from "../types";
 import { api } from "../services/api";
 
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import CardActionArea from "@mui/material/CardActionArea";
+import CardActions from "@mui/material/CardActions";
+import Chip from "@mui/material/Chip";
+import { String } from "three/examples/jsm/transpiler/AST.js";
+import { styled } from "@mui/material/styles";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Divider from "@mui/material/Divider";
+import Checkbox from "@mui/material/Checkbox";
+import Avatar from "@mui/material/Avatar";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import FormControl from "@mui/material/FormControl";
+import Select, { SelectChangeEvent } from "@mui/material/Select";
+import InputLabel from "@mui/material/InputLabel";
+
 interface ModelListProps {
   models: STLModel[];
   folders: Folder[];
+  currentFolderName: string;
+  onBackNavigation: () => void;
   onUpload: (files: FileList) => void;
   onImport: () => void;
   onSelectModel: (model: STLModel) => void;
@@ -28,7 +55,7 @@ interface ModelListProps {
   // Selection Props
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
-  onSelectAll: () => void;
+  onSelectAll: (filtered) => void;
   onClearSelection: () => void;
 
   // Folder Interaction Props
@@ -48,6 +75,8 @@ type SortOption =
 const ModelList: React.FC<ModelListProps> = ({
   models,
   folders,
+  currentFolderName,
+  onBackNavigation,
   onUpload,
   onImport,
   onSelectModel,
@@ -66,17 +95,24 @@ const ModelList: React.FC<ModelListProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("date-desc");
   const [activeMenuModelId, setActiveMenuModelId] = useState<string | null>(
-    null
+    null,
   );
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setActiveMenuModelId(null);
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, []);
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  const VisuallyHiddenInput = styled("input")({
+    clip: "rect(0 0 0 0)",
+    clipPath: "inset(50%)",
+    height: 1,
+    overflow: "hidden",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    whiteSpace: "nowrap",
+    width: 1,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -94,7 +130,7 @@ const ModelList: React.FC<ModelListProps> = ({
       result = result.filter(
         (m) =>
           m.name.toLowerCase().includes(query) ||
-          m.tags.some((t) => t.toLowerCase().includes(query))
+          m.tags.some((t) => t.toLowerCase().includes(query)),
       );
     }
 
@@ -206,7 +242,7 @@ const ModelList: React.FC<ModelListProps> = ({
 
     e.dataTransfer.setData(
       "application/json",
-      JSON.stringify({ modelIds: idsToMove })
+      JSON.stringify({ modelIds: idsToMove }),
     );
     e.dataTransfer.effectAllowed = "move";
   };
@@ -214,138 +250,207 @@ const ModelList: React.FC<ModelListProps> = ({
   const selectionMode = selectedIds.size > 0;
 
   return (
-    <div
-      className="flex-1 p-2 sm:p-4 h-full overflow-y-auto bg-vault-800 relative flex flex-col"
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Drag Overlay */}
-      {isDragging && (
-        <div className="absolute inset-0 bg-blue-600/20 border-4 border-dashed border-blue-500 z-50 flex items-center justify-center backdrop-blur-sm m-4 rounded-xl pointer-events-none">
-          <div className="text-center">
-            <CloudUpload className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-bounce" />
-            <h2 className="text-2xl font-bold text-white">
-              Drop 3D files here
-            </h2>
-            <p className="text-blue-200 mt-2">Supported: STL, STEP, 3MF</p>
-          </div>
-        </div>
-      )}
-
+    <div className="flex-1 p-2 sm:p-4 h-full overflow-y-auto relative flex flex-col">
       {/* Header Section */}
-      <div className="flex flex-col gap-6 mb-8">
+      <div className="flex flex-col gap-6 mb-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-white mb-1">
-              Model Library
-            </h2>
-            <p className="text-slate-400 text-sm">
-              {processedFolders.length}{" "}
-              {processedFolders.length === 1 ? "folder - " : "folders - "}
-              {processedModels.length}{" "}
-              {processedModels.length === 1 ? "model" : "models"}
-              {models.length !== processedModels.length &&
-                ` (filtered from ${models.length})`}
-            </p>
+            <Stack
+              direction="row"
+              spacing={2}
+              sx={{
+                alignItems: "baseline",
+              }}
+            >
+              <Typography variant="h4">{currentFolderName}</Typography>
+              <Typography variant="body1" sx={{ color: "text.secondary" }}>
+                {processedFolders.length}{" "}
+                {processedFolders.length === 1 ? "folder • " : "folders • "}
+                {processedModels.length}{" "}
+                {processedModels.length === 1 ? "model" : "models"}
+                {models.length !== processedModels.length &&
+                  ` ( filtered from: ${models.length} )`}
+              </Typography>
+            </Stack>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={onSelectAll}
-              className="bg-vault-700 hover:bg-vault-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <CheckSquare className="w-4 h-4" />
-              Select All
-            </button>
-            <button
-              onClick={onImport}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <Globe className="w-4 h-4" />
-              Import URL
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <CloudUpload className="w-4 h-4" />
-              Upload Model
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              accept=".stl,.step,.stp,.3mf"
-              multiple
-            />
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                startIcon={<CheckSquare />}
+                onClick={() => onSelectAll(processedModels)}
+              >
+                {`${
+                  models.length === selectedIds.size
+                    ? "Unselect All"
+                    : "Select All"
+                } `}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Globe />}
+                onClick={onImport}
+              >
+                Import URL
+              </Button>
+              <Button
+                component="label"
+                role={undefined}
+                variant="contained"
+                tabIndex={-1}
+                startIcon={<CloudUpload />}
+              >
+                Upload models
+                <VisuallyHiddenInput
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept=".stl,.step,.stp,.3mf"
+                  multiple
+                />
+              </Button>
+            </Stack>
           </div>
         </div>
 
         {/* Search & Sort Bar */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 ">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search by name or tags..."
-              className="w-full bg-vault-900 border border-vault-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors placeholder:text-slate-600"
-              value={searchQuery}
+            <TextField
+              fullWidth
+              id="search-input"
+              label="Search"
               onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        className={
+                          searchQuery != ""
+                            ? "transition-all opacity-100"
+                            : "transition-all opacity-0"
+                        }
+                        onClick={() => {
+                          setSearchQuery("");
+                          document.getElementById("search-input").value = "";
+                        }}
+                      >
+                        <XCircle />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              variant="outlined"
             />
           </div>
 
           <div className="relative min-w-[200px]">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="w-full appearance-none bg-vault-900 border border-vault-700 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none cursor-pointer transition-colors"
-            >
-              <option value="date-desc">Date Added (Newest)</option>
-              <option value="date-asc">Date Added (Oldest)</option>
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="name-desc">Name (Z-A)</option>
-              <option value="size-desc">Size (Largest)</option>
-              <option value="size-asc">Size (Smallest)</option>
-            </select>
-            <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <FormControl fullWidth>
+              <InputLabel id="demo-simple-select-label">Sort</InputLabel>
+              <Select
+                labelId="demo-simple-select-label"
+                id="demo-simple-select"
+                value={sortBy}
+                label="Sort"
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+              >
+                <MenuItem value="date-desc">Date Added (Newest)</MenuItem>
+                <MenuItem value="date-asc">Date Added (Oldest)</MenuItem>
+                <MenuItem value="name-asc">Name (A-Z)</MenuItem>
+                <MenuItem value="name-desc">Name (Z-A)</MenuItem>
+                <MenuItem value="size-desc">Size (Largest)</MenuItem>
+                <MenuItem value="size-asc">Size (Smallest)</MenuItem>
+              </Select>
+            </FormControl>
           </div>
         </div>
       </div>
 
       {/* Grid */}
       {processedModels.length === 0 && processedFolders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 text-slate-500 border-2 border-dashed border-vault-700 rounded-xl bg-vault-900/30">
-          {searchQuery ? (
-            <>
-              <Search className="w-12 h-12 mb-4 opacity-50" />
-              <p className="text-lg">No matches found</p>
-              <p className="text-sm">Try adjusting your search query</p>
-            </>
-          ) : (
-            <>
-              <FileBox className="w-16 h-16 mb-4 opacity-50" />
-              <p className="text-lg">This folder is empty</p>
-              <p className="text-sm">
-                Drag and drop STL or STEP files to upload
-              </p>
-              {isTouchDevice && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                  Tap to choose files
-                </button>
-              )}
-            </>
-          )}
+        <div>
+          <Button
+            disabled={currentFolderName === "All Models"}
+            aria-label="navigate back"
+            startIcon={<ChevronLeft />}
+            onClick={() => {
+              onBackNavigation();
+            }}
+          >
+            Back
+          </Button>
+          <div
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className="flex flex-col items-center justify-center flex-1 mt-2 text-slate-500 border-2 border-dashed border-vault-700 rounded-xl bg-vault-900/30"
+          >
+            {searchQuery ? (
+              <>
+                <Search className="w-12 h-12 mb-4 opacity-50" />
+                <p className="text-lg">No matches found</p>
+                <p className="text-sm">Try adjusting your search query</p>
+              </>
+            ) : (
+              <>
+                {isDragging && (
+                  <div className="relative bg-white/20 border-4 border-dashed border-white-500 m-2 z-50 flex items-center justify-center backdrop-blur-sm m-4 rounded-md pointer-events-none">
+                    <div className="text-center p-4">
+                      <CloudUpload className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-bounce" />
+                      <h2 className="text-2xl font-bold text-white">
+                        Drop 3D files
+                      </h2>
+                      <p className="text-blue-200 mt-2">
+                        Supported: STL, STEP, 3MF
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {!isDragging && (
+                  <div className="flex-col text-center py-4">
+                    <FileBox className="w-16 h-16 mb-4 mx-auto opacity-50" />
+                    <p className="text-lg">This folder is empty</p>
+                    <p className="text-sm">
+                      Drag and drop STL or STEP files to upload
+                    </p>
+                  </div>
+                )}
+                {isTouchDevice && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Tap to choose files
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 pb-5">
+          <Button
+            disabled={currentFolderName === "All Models"}
+            aria-label="navigate back"
+            startIcon={<ChevronLeft />}
+            onClick={() => {
+              onBackNavigation();
+            }}
+          >
+            Back
+          </Button>
+          {/* Folders */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 pb-5 pt-2">
             {/* Render Folders First */}
             {processedFolders.map((folder) => (
               <div
@@ -362,30 +467,68 @@ const ModelList: React.FC<ModelListProps> = ({
                   setDragOverFolderId(null);
                 }}
                 onDrop={(e) => handleFolderDrop(e, folder.id)}
-                className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 relative overflow-hidden
-                    ${
-                      dragOverFolderId === folder.id
-                        ? "border-blue-400 bg-blue-900/10 ring-1 ring-blue-400"
-                        : "border-vault-700 hover:border-vault-600 hover:bg-vault-800/50"
-                    }
-                  `}
+                className={`cursor-pointer transition-all flex items-center relative overflow-hidden hover:-translate-y-1 ${
+                  dragOverFolderId === folder.id
+                    ? " -translate-y-1 brightness-150 ring-2 ring-white rounded-md"
+                    : " "
+                }`}
               >
-                <div className="w-12 h-12 bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 group-hover:text-blue-400 group-hover:scale-110 transition-all shrink-0">
-                  <FolderIcon className="w-6 h-6" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-slate-200 truncate group-hover:text-white">
-                    {folder.name}
-                  </h3>
-                  <p className="text-xs text-slate-500">Folder</p>
-                </div>
-                {dragOverFolderId === folder.id && (
-                  <div className="absolute inset-0 bg-blue-500/10 animate-pulse pointer-events-none" />
-                )}
+                <Card className="w-full">
+                  <CardActionArea>
+                    <CardContent>
+                      <Stack
+                        sx={{
+                          justifyContent: "start",
+                          alignItems: "center",
+                        }}
+                        direction="row"
+                        spacing={2}
+                      >
+                        <Avatar sx={{}}>
+                          <FolderIcon />
+                        </Avatar>
+                        <Stack>
+                          <Typography variant="body1" component="div">
+                            {folder.name}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: "text.secondary" }}
+                          >
+                            Folder
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-2 pb-24">
+
+          {/* Files */}
+          <div
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 pb-24"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {/* Drag Overlay */}
+            {isDragging && (
+              <div className="relative bg-white/20 border-4 border-dashed border-white-500 z-50 flex items-center justify-center backdrop-blur-sm m-4 rounded-md pointer-events-none">
+                <div className="text-center ">
+                  <CloudUpload className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-bounce" />
+                  <h2 className="text-2xl font-bold text-white">
+                    Drop 3D files
+                  </h2>
+                  <p className="text-blue-200 mt-2">
+                    Supported: STL, STEP, 3MF
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Render Models */}
             {processedModels.map((model) => {
               const isSelected = selectedIds.has(model.id);
@@ -396,7 +539,6 @@ const ModelList: React.FC<ModelListProps> = ({
                   key={model.id}
                   draggable={true}
                   onDragStart={(e) => handleCardDragStart(e, model.id)}
-                  style={{ zIndex: isMenuOpen ? 20 : "auto" }}
                   onClick={() => {
                     if (selectionMode) {
                       onToggleSelection(model.id);
@@ -404,142 +546,170 @@ const ModelList: React.FC<ModelListProps> = ({
                       onSelectModel(model);
                     }
                   }}
-                  className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing ${
-                    isSelected || selectedModelId === model.id
-                      ? "border-blue-500 ring-1 ring-blue-500/50"
-                      : "border-vault-700 hover:border-vault-600"
-                  }`}
+                  className={`group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing`}
                 >
-                  {/* Selection Checkbox */}
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelection(model.id);
-                    }}
-                    className={`absolute top-4 left-4 z-10 rounded bg-vault-900/80 backdrop-blur-sm transition-opacity duration-200 p-1
-                    ${
-                      isSelected || selectionMode
-                        ? "opacity-100"
-                        : "opacity-0 group-hover:opacity-100"
-                    }`}
-                  >
-                    {isSelected ? (
-                      <CheckSquare className="w-5 h-5 text-blue-500" />
-                    ) : (
-                      <Square className="w-5 h-5 text-slate-400 hover:text-white" />
-                    )}
-                  </div>
-
-                  <div className="aspect-square bg-vault-800 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden pointer-events-none">
-                    {/* Thumbnail or Placeholder */}
-                    {model.thumbnail ? (
-                      <img
-                        src={model.thumbnail}
-                        alt={model.name}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                      />
-                    ) : (
-                      <>
-                        <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
-                        <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
-                      </>
-                    )}
-
-                    {/* Badges */}
-                    <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end max-w-[80%]">
-                      {model.tags.slice(0, 2).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-sm bg-black/60 text-slate-300 px-2 pb-0.5 rounded-md backdrop-blur-sm truncate max-w-full"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {model.tags.length > 2 && (
-                        <span className="text-xs bg-black/60 text-slate-300 px-2 pt-0.5 rounded-md backdrop-blur-sm">
-                          +{model.tags.length - 2}
-                        </span>
+                  <Card raised={isSelected}>
+                    <CardActionArea>
+                      {model.thumbnail ? (
+                        <CardMedia
+                          component="div"
+                          className="h-60 object-cover"
+                          image={model.thumbnail}
+                        />
+                      ) : (
+                        <>
+                          <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
+                          <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
+                        </>
                       )}
-                    </div>
-
-                    {/* File Type Badge */}
-                    <div className="absolute bottom-2 left-2">
-                      <span className="text-sm bg-blue-600/80 text-white px-1.5 py-0.5 rounded uppercase font-medium shadow-sm">
-                        {model.name.split(".").pop()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <h3
-                        className="font-semibold text-slate-200 truncate mb-1"
-                        title={model.name}
-                      >
-                        {model.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          {(model.size / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          {new Date(model.dateAdded).toLocaleDateString()}
-                        </span>
+                      <div className="absolute bottom-[5.2rem] left-2 flex gap-1 max-w-[80%]">
+                        {model.tags.slice(0, 2).map((tag) => (
+                          <Chip
+                            sx={{
+                              borderRadius: 1,
+                            }}
+                            label={tag}
+                            key={tag}
+                            color="primary"
+                            size="small"
+                          />
+                        ))}
+                        {model.tags.length > 2 && (
+                          <Chip
+                            sx={{
+                              borderRadius: 1,
+                            }}
+                            label={`+${model.tags.length - 2}`}
+                            color="secondary"
+                            size="small"
+                          />
+                        )}
                       </div>
-                    </div>
-
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuModelId(isMenuOpen ? null : model.id);
-                        }}
-                        className="text-slate-500 hover:text-white p-1 rounded hover:bg-vault-800 transition-colors"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      {isMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-32 bg-vault-800 border border-vault-600 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
-                          <button
+                      <div className="absolute top-2 right-2">
+                        <Chip
+                          sx={{
+                            borderRadius: 1,
+                            fontWeight: "medium",
+                          }}
+                          label={model.name.split(".").pop().toUpperCase()}
+                          color="info"
+                          size="small"
+                        />
+                      </div>
+                      <CardContent>
+                        <Typography gutterBottom variant="body1" noWrap={true}>
+                          {model.name}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "text.secondary" }}
+                        >
+                          {(model.size / (1024 * 1024)).toFixed(2)}
+                          {" MB  • "}
+                          {new Date(model.dateAdded).toLocaleDateString()}
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                    <CardActions>
+                      <Tooltip title="Download">
+                        <IconButton
+                          aria-label="download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          href={api.getDownloadUrl(model)}
+                        >
+                          <DownloadIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Open in Slicer">
+                        <IconButton
+                          aria-label="open in slicer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          href={api.getSlicerUrl(model)}
+                        >
+                          <ScreenShareIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <div className="absolute right-2">
+                        <IconButton
+                          id={`fade-button-${model.id}`}
+                          aria-controls={
+                            isMenuOpen ? `fade-menu-${model.id}` : undefined
+                          }
+                          aria-haspopup="true"
+                          aria-expanded={isMenuOpen ? "true" : undefined}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAnchorEl(e.currentTarget);
+                            setActiveMenuModelId(isMenuOpen ? null : model.id);
+                          }}
+                        >
+                          <MoreVertical />
+                        </IconButton>
+                        <Menu
+                          id={`fade-menu-${model.id}`}
+                          anchorEl={anchorEl}
+                          open={isMenuOpen}
+                          onClose={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuModelId(null);
+                          }}
+                          anchorOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                          transformOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                        >
+                          <MenuItem
                             onClick={(e) => {
-                              e.stopPropagation();
                               onSelectModel(model);
                               setActiveMenuModelId(null);
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-vault-700 hover:text-white flex items-center gap-2"
                           >
-                            <ExternalLink className="w-3 h-3" /> Open
-                          </button>
-
-                          <a
-                            href={api.getDownloadUrl(model)}
-                            download={model.name}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuModelId(null);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-vault-700 hover:text-white flex items-center gap-2"
-                          >
-                            <Download className="w-3 h-3" /> Download
-                          </a>
-
-                          <button
+                            Open
+                          </MenuItem>
+                          <Divider />
+                          <MenuItem
+                            sx={{ color: "#dd3434ff" }}
                             onClick={(e) => {
                               e.stopPropagation();
                               // Call delete FIRST to ensure propagation isn't cut off by component unmounting if list updates
                               onDelete(model.id);
                               setActiveMenuModelId(null);
                             }}
-                            className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center gap-2"
                           >
-                            <Trash2 className="w-3 h-3" /> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                            Delete
+                          </MenuItem>
+                        </Menu>
+                      </div>
+                    </CardActions>
+                  </Card>
+                  {/* Selection Checkbox */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSelection(model.id);
+                    }}
+                    className={`absolute top-2 left-2 z-10 rounded backdrop-blur-sm transition-opacity duration-200
+                    ${
+                      isSelected || selectionMode
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={null}
+                      slotProps={{
+                        input: { "aria-label": "controlled" },
+                      }}
+                    />
                   </div>
                 </div>
               );

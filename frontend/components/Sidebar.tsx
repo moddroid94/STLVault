@@ -10,8 +10,31 @@ import {
   X,
   ChevronRight,
   Settings,
+  PlusIcon,
 } from "lucide-react";
 import { Folder, STLModel, StorageStats } from "../types";
+
+import Stack from "@mui/material/Stack";
+import IconButton from "@mui/material/IconButton";
+import Typography from "@mui/material/Typography";
+import { TreeViewDefaultItemModelProperties } from "@mui/x-tree-view/models";
+import { useTreeItemUtils } from "@mui/x-tree-view/hooks";
+import {
+  UseTreeItemContentSlotOwnProps,
+  UseTreeItemLabelSlotOwnProps,
+  UseTreeItemStatus,
+} from "@mui/x-tree-view/useTreeItem";
+import { RichTreeView } from "@mui/x-tree-view/RichTreeView";
+import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
+import {
+  TreeItem,
+  TreeItemProps,
+  TreeItemSlotProps,
+} from "@mui/x-tree-view/TreeItem";
+import Container from "@mui/material/Container";
+import Button from "@mui/material/Button";
+import OutlinedInput from "@mui/material/OutlinedInput";
+import Badge from "@mui/material/Badge";
 
 const APP_TAG = import.meta.env.VITE_APP_TAG || __APP_VERSION__ || "dev";
 
@@ -29,287 +52,6 @@ interface SidebarProps {
   onOpenSettings: () => void;
   variant?: "desktop" | "mobile";
 }
-
-// Helper component for recursive rendering
-interface FolderNodeProps {
-  folder: Folder;
-  level: number;
-  allFolders: Folder[];
-  currentFolderId: string;
-  expandedIds: Set<string>;
-  editingId: string | null;
-  dragTargetId: string | null;
-  folderCounts: Record<string, number>;
-  creatingSubfolderId: string | null;
-  // Callbacks
-  onToggleExpand: (id: string) => void;
-  onSelect: (id: string) => void;
-  onRename: (id: string, name: string) => void;
-  onDelete: (id: string, count: number, hasChildren: boolean) => void;
-  onSetEditing: (id: string | null) => void;
-  onSetCreatingSubfolder: (id: string | null) => void;
-  onCreateSubfolder: (name: string, parentId: string) => void;
-  onDragOver: (e: React.DragEvent, id: string) => void;
-  onDragLeave: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, id: string) => void;
-}
-
-const FolderNode: React.FC<FolderNodeProps> = ({
-  folder,
-  level,
-  allFolders,
-  currentFolderId,
-  expandedIds,
-  editingId,
-  dragTargetId,
-  folderCounts,
-  creatingSubfolderId,
-  onToggleExpand,
-  onSelect,
-  onRename,
-  onDelete,
-  onSetEditing,
-  onSetCreatingSubfolder,
-  onCreateSubfolder,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-}) => {
-  const [editName, setEditName] = useState(folder.name);
-  const [subfolderName, setSubfolderName] = useState("");
-
-  const children = allFolders.filter((f) => f.parentId === folder.id);
-  const hasChildren = children.length > 0;
-  const isExpanded = expandedIds.has(folder.id);
-  const isEditing = editingId === folder.id;
-  const isCreatingChild = creatingSubfolderId === folder.id;
-  const isDropTarget = dragTargetId === folder.id;
-  const count = folderCounts[folder.id] || 0;
-  const isSelected = currentFolderId === folder.id;
-
-  // Reset edit name when starting edit
-  React.useEffect(() => {
-    if (isEditing) setEditName(folder.name);
-  }, [isEditing, folder.name]);
-
-  const handleRenameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (editName.trim()) {
-      onRename(folder.id, editName.trim());
-      onSetEditing(null);
-    }
-  };
-
-  const handleSubfolderSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (subfolderName.trim()) {
-      onCreateSubfolder(subfolderName.trim(), folder.id);
-      setSubfolderName("");
-      onSetCreatingSubfolder(null);
-      // Ensure we are expanded to see the new child
-      if (!isExpanded) onToggleExpand(folder.id);
-    }
-  };
-
-  return (
-    <div>
-      {/* Folder Row */}
-      <div
-        className={`relative group flex items-center pr-2 min-h-[36px] transition-colors rounded-md
-          ${
-            isDropTarget
-              ? "bg-blue-600/40 text-blue-200 ring-1 ring-blue-400"
-              : isSelected
-              ? "bg-blue-600/20 text-blue-400"
-              : "text-slate-400 hover:bg-vault-800 hover:text-slate-200"
-          }
-        `}
-        style={{ paddingLeft: `${level * 15 + 5}px` }}
-        onDragOver={(e) => onDragOver(e, folder.id)}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, folder.id)}
-      >
-        {/* Expand Toggle */}
-        <div
-          className="w-5 h-5 flex items-center justify-center shrink-0 cursor-pointer hover:text-white hover:bg-vault-600 rounded-md mr-2 "
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand(folder.id);
-          }}
-        >
-          {hasChildren ? (
-            <ChevronRight
-              className={`w-5 h-5 bg-vault-700 rounded-md transition ${
-                isExpanded ? `rotate-90` : ``
-              }`}
-            />
-          ) : (
-            // Placeholder to keep alignment
-            <div className="w-4 h-4" />
-          )}
-        </div>
-
-        {/* Content */}
-        {isEditing ? (
-          <form
-            onSubmit={handleRenameSubmit}
-            className="flex-1 flex items-center gap-1 min-w-0 mr-2"
-          >
-            <input
-              autoFocus
-              type="text"
-              className="w-full bg-vault-900 border border-blue-500 rounded px-1.5 py-0.5 text-sm text-white focus:outline-none min-w-0"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.key === "Escape" && onSetEditing(null)}
-            />
-            <button
-              type="submit"
-              className="text-green-500 hover:text-green-400 p-1"
-            >
-              <Check className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onSetEditing(null)}
-              className="text-red-500 hover:text-red-400 p-1"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </form>
-        ) : (
-          <>
-            <div
-              className="flex-1 flex items-center gap-2 min-w-0 cursor-pointer py-1.5"
-              onClick={() => onSelect(folder.id)}
-            >
-              <FolderIcon className="w-4 h-4 shrink-0" />
-              <span className="text-sm font-medium truncate select-none">
-                {folder.name}
-              </span>
-            </div>
-
-            {/* Hover Actions */}
-            <div className="absolute right-10 items-center opacity-0 group-hover:opacity-100 transition-opacity bg-vault-900/50 backdrop-blur-sm rounded p-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSetCreatingSubfolder(folder.id);
-                  if (!isExpanded) onToggleExpand(folder.id);
-                }}
-                className="p-1.5 text-slate-500 hover:text-green-400 rounded hover:bg-vault-700"
-                title="New Subfolder"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSetEditing(folder.id);
-                }}
-                className="p-1.5 text-slate-500 hover:text-blue-400 rounded hover:bg-vault-700"
-                title="Rename"
-              >
-                <Pencil className="w-3 h-3" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(folder.id, count, hasChildren);
-                }}
-                className="p-1.5 text-slate-500 hover:text-red-400 rounded hover:bg-vault-700"
-                title="Delete"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* Count Badge */}
-            <span
-              className={`text-xs px-2 py-1 rounded-md bg-vault-800 group-hover:bg-vault-700 transition ${
-                isSelected ? "text-blue-500" : "text-slate-400"
-              } `}
-            >
-              {count}
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* New Subfolder Input */}
-      {isCreatingChild && (
-        <div
-          className="flex items-center pr-2 py-1"
-          style={{ paddingLeft: `${(level + 1) * 16 + 32}px` }}
-        >
-          <form
-            onSubmit={handleSubfolderSubmit}
-            className="flex-1 flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-200"
-          >
-            <FolderIcon className="w-4 h-4 text-slate-500 shrink-0" />
-            <input
-              autoFocus
-              type="text"
-              placeholder="Subfolder Name"
-              className="w-full bg-vault-900 border border-blue-500 rounded px-1.5 py-0.5 text-sm text-white focus:outline-none min-w-0"
-              value={subfolderName}
-              onChange={(e) => setSubfolderName(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Escape" && onSetCreatingSubfolder(null)
-              }
-            />
-            <button
-              type="submit"
-              className="text-green-500 hover:text-green-400 p-1"
-            >
-              <Check className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onSetCreatingSubfolder(null)}
-              className="text-red-500 hover:text-red-400 p-1"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* Children */}
-      {isExpanded && (
-        <div className="flex flex-col">
-          {children.map((child) => (
-            <FolderNode
-              key={child.id}
-              folder={child}
-              level={level + 1}
-              allFolders={allFolders}
-              currentFolderId={currentFolderId}
-              expandedIds={expandedIds}
-              editingId={editingId}
-              dragTargetId={dragTargetId}
-              folderCounts={folderCounts}
-              creatingSubfolderId={creatingSubfolderId}
-              onToggleExpand={onToggleExpand}
-              onSelect={onSelect}
-              onRename={onRename}
-              onDelete={onDelete}
-              onSetEditing={onSetEditing}
-              onSetCreatingSubfolder={onSetCreatingSubfolder}
-              onCreateSubfolder={onCreateSubfolder}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const Sidebar: React.FC<SidebarProps> = ({
   folders,
@@ -350,6 +92,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     [isDesktopVariant]
   );
 
+  // Calculate direct counts only (not recursive, matching file system behavior usually)
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    models.forEach((m) => {
+      counts[m.folderId] = (counts[m.folderId] || 0) + 1;
+    });
+    folders.forEach((f) => {
+      counts[f.parentId] = (counts[f.parentId] || 0) + 1;
+    });
+    return counts;
+  }, [models, folders]);
+
   useEffect(() => {
     if (!isDesktopVariant) return;
     if (!isResizing) return;
@@ -377,20 +131,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [isResizing, isDesktopVariant]);
 
-  // Calculate direct counts only (not recursive, matching file system behavior usually)
-  const folderCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    models.forEach((m) => {
-      counts[m.folderId] = (counts[m.folderId] || 0) + 1;
-    });
-    folders.forEach((f) => {
-      counts[f.parentId] = (counts[f.parentId] || 0) + 1;
-    });
-    return counts;
-  }, [models, folders]);
-
   // Ensure parents of current folder are expanded
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentFolderId && currentFolderId !== "all") {
       const expandPath = (id: string, path: Set<string>) => {
         const folder = folders.find((f) => f.id === id);
@@ -408,12 +150,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [currentFolderId, folders]);
 
-  const handleCreateRootSubmit = (e: React.FormEvent) => {
+  const handleCreateFolderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newRootName.trim()) {
+    if (newRootName.trim() && !creatingSubfolderId) {
       onCreateFolder(newRootName.trim(), null);
       setNewRootName("");
       setIsCreatingRoot(false);
+    } else if (newRootName.trim() && creatingSubfolderId != "") {
+      onCreateFolder(newRootName.trim(), creatingSubfolderId);
+      setNewRootName("");
+      setIsCreatingRoot(false);
+      setCreatingSubfolderId("");
     }
   };
 
@@ -427,12 +174,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
-  const handleDeleteRequest = (
-    id: string,
-    count: number,
-    hasChildren: boolean
-  ) => {
-    if (count > 0 || hasChildren) {
+  const handleExpand = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
+  const handleDeleteRequest = (id: string, count: number) => {
+    if (count > 0) {
       alert("Folder must be empty to delete (no files and no subfolders).");
       return;
     }
@@ -495,115 +243,260 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Root folders
   const rootFolders = folders.filter((f) => f.parentId === null);
 
+  //builds the treeview structure
+  const treefolders = () => {
+    const treeitems: TreeViewDefaultItemModelProperties[] = [];
+    rootFolders.map((folder) => {
+      treeitems.push({
+        id: folder.id,
+        label: folder.name,
+        children: [],
+      });
+    });
+    treeitems.map((folder) => {
+      folders.map((subfolder) => {
+        if (subfolder.parentId === folder.id) {
+          folder.children.push({ id: subfolder.id, label: subfolder.name });
+        }
+      });
+      folder.children.sort((a, b) => {
+        return a.label.localeCompare(b.label);
+      });
+    });
+    treeitems.sort((a, b) => {
+      return a.label.localeCompare(b.label);
+    });
+    return treeitems;
+  };
+
+  interface CustomLabelProps extends UseTreeItemLabelSlotOwnProps {
+    status: UseTreeItemStatus;
+    onClick: React.MouseEventHandler<HTMLElement>;
+    onPlusClick: React.MouseEventHandler<HTMLElement>;
+  }
+
+  function CustomLabel({
+    children,
+    status,
+    onClick,
+    onPlusClick,
+    ...props
+  }: CustomLabelProps) {
+    return (
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        flexGrow={1}
+        sx={{ minWidth: 0 }}
+        {...props}
+      >
+        <Typography noWrap>{children}</Typography>
+        <Stack direction="row">
+          <IconButton
+            onClick={onPlusClick}
+            aria-label="select item"
+            size="small"
+            sx={{ color: 'grey.300' }}
+          >
+            <PlusIcon />
+          </IconButton>
+          <IconButton
+            onClick={onClick}
+            aria-label="select item"
+            size="small"
+            edge="end"
+            sx={{ color: 'grey.300' }}
+          >
+            <Trash2 />
+          </IconButton>
+        </Stack>
+      </Stack>
+    );
+  }
+
+  const CustomTreeItem = React.forwardRef(function CustomTreeItem(
+    props: TreeItemProps,
+    ref: React.Ref<HTMLLIElement>
+  ) {
+    const { interactions, status } = useTreeItemUtils({
+      itemId: props.itemId,
+      children: props.children,
+    });
+
+    const handleContentClick: UseTreeItemContentSlotOwnProps["onClick"] = (
+      event
+    ) => {
+      onSelectFolder(props.itemId);
+    };
+    const count = folderCounts[props.itemId] || 0;
+
+    const handleIconButtonClick = (event: React.MouseEvent) => {
+      event.stopPropagation();
+      handleDeleteRequest(props.itemId, count);
+    };
+
+    const handlePlusClick = (event: React.MouseEvent) => {
+      event.stopPropagation();
+      setCreatingSubfolderId(props.itemId);
+      setIsCreatingRoot(true);
+      document.getElementById("folder-name-input").focus();
+    };
+
+    return (
+      <TreeItem
+        {...props}
+        ref={ref}
+        onDragOver={(e) => handleDragOver(e, props.itemId)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, props.itemId)}
+        className={
+          props.itemId === dragTargetId
+            ? "bg-white/10 rounded-md ring-2 ring-white"
+            : ""
+        }
+        slots={{
+          label: CustomLabel,
+        }}
+        slotProps={
+          {
+            label: {
+              onClick: handleIconButtonClick,
+              onPlusClick: handlePlusClick,
+              status,
+            },
+            content: { onClick: handleContentClick },
+          } as TreeItemSlotProps
+        }
+      />
+    );
+  });
+
   return (
-    <div
-      className="bg-vault-900 border-r border-vault-700 flex flex-col h-full select-none relative shrink-0 group/sidebar"
+    <Container
+      disableGutters
+      sx={{ bgcolor: "common.black" }}
+      className="border-r border-vault-700 flex flex-col h-full select-none relative shrink-0 group/sidebar mr-6"
       style={isDesktopVariant ? { width } : undefined}
       onDragLeave={() => setDragTargetId(null)}
     >
       <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20 shrink-0">
-          <Box className="w-5 h-5 text-white" />
+        <Stack
+          direction="row"
+          gap={1}
+          sx={{
+            justifyContent: "flex-start",
+            alignItems: "baseline",
+            minWidth: 0,
+          }}
+        >
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20 shrink-0 pt-1">
+            <Box className="w-5 h-5 text-white pb-1" />
+          </div>
+          <Typography noWrap variant="h4">
+            STLVault
+          </Typography>
+          <Typography
+            noWrap
+            variant="subtitle2"
+            sx={{ color: "text.secondary" }}
+          >
+            v{APP_TAG}
+          </Typography>
+        </Stack>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-thin scrollbar-thumb-vault-700 scrollbar-track-transparent overflow-y-scroll">
+        <div className="px-4 mb-4">
+          <Button
+            fullWidth
+            startIcon={<Plus />}
+            onClick={() => {
+              setIsCreatingRoot(true);
+              document.getElementById("folder-name-input").focus();
+            }}
+            variant="outlined"
+          >
+            New Root Folder
+          </Button>
         </div>
-        <h1 className="text-xl font-bold text-white tracking-tight truncate">
-          STL Vault v{APP_TAG}
-        </h1>
-      </div>
 
-      <div className="px-4 mb-4">
-        <button
-          onClick={() => setIsCreatingRoot(true)}
-          className="w-full flex items-center justify-center gap-2 bg-vault-800 hover:bg-vault-700 text-slate-200 py-2 px-4 rounded-md transition-colors border border-vault-700 shadow-sm overflow-hidden"
-        >
-          <Plus className="w-4 h-4 shrink-0" />
-          <span className="truncate">New Root Folder</span>
-        </button>
-      </div>
-
-      {isCreatingRoot && (
         <form
-          onSubmit={handleCreateRootSubmit}
-          className="px-4 mb-4 animate-in slide-in-from-top-2 fade-in duration-200"
+          onSubmit={handleCreateFolderSubmit}
+          className={`px-4 mb-4 transition-all duration-400 ${
+            isCreatingRoot ? "opacity-100" : "opacity-0 origin-top h-0"
+          }`}
         >
-          <div className="flex items-center gap-1">
-            <input
-              autoFocus
+          <div className="flex items-center gap-1 mb-3">
+            <OutlinedInput
+              id="folder-name-input"
               type="text"
-              className="w-full bg-vault-900 border border-blue-500 rounded px-3 py-2 text-sm text-white focus:outline-none shadow-sm"
+              className="w-full"
               placeholder="Folder Name..."
               value={newRootName}
               onChange={(e) => setNewRootName(e.target.value)}
-              onBlur={() => !newRootName.trim() && setIsCreatingRoot(false)}
-              onKeyDown={(e) => e.key === "Escape" && setIsCreatingRoot(false)}
+              onBlur={() => {
+                !newRootName.trim();
+                setIsCreatingRoot(false);
+                setCreatingSubfolderId("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setIsCreatingRoot(false);
+                  setCreatingSubfolderId("");
+                }
+              }}
             />
           </div>
         </form>
-      )}
 
-      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 scrollbar-thin scrollbar-thumb-vault-700 scrollbar-track-transparent">
-        <button
+        <Button
+          variant="contained"
+          startIcon={<LayoutGrid />}
+          color={currentFolderId === "all" ? "info" : "primary"}
           onClick={() => onSelectFolder("all")}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors group mb-2 ${
-            currentFolderId === "all"
-              ? "bg-blue-600/20 text-blue-400"
-              : "text-slate-400 hover:bg-vault-800 hover:text-slate-200"
-          }`}
+          endIcon={
+            <Badge badgeContent={models.length} className="mr-2"></Badge>
+          }
+          className="w-full"
+          sx={{ alignItems: "center", justifyContent: "space-between" }}
         >
-          <LayoutGrid className="w-5 h-5 shrink-0" />
-          <span className="text-sm font-medium flex-1 text-left truncate">
-            All Models
-          </span>
-          <span className="text-xs text-slate-600 group-hover:text-slate-500 shrink-0">
-            {models.length}
-          </span>
-        </button>
+          All Models
+        </Button>
 
-        <div className="pt-2 pb-2 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
-          <span>Library</span>
+        <div className="pt-2 pb-1 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
+          <Typography variant="subtitle1">Library</Typography>
         </div>
 
-        <div className="space-y-1 pb-4">
-          {rootFolders.map((folder) => (
-            <FolderNode
-              key={folder.id}
-              folder={folder}
-              level={0}
-              allFolders={folders}
-              currentFolderId={currentFolderId}
-              expandedIds={expandedIds}
-              editingId={editingId}
-              dragTargetId={dragTargetId}
-              folderCounts={folderCounts}
-              creatingSubfolderId={creatingSubfolderId}
-              onToggleExpand={toggleExpand}
-              onSelect={toggleExpand}
-              onRename={onRenameFolder}
-              onDelete={handleDeleteRequest}
-              onSetEditing={setEditingId}
-              onSetCreatingSubfolder={setCreatingSubfolderId}
-              onCreateSubfolder={onCreateFolder}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            />
-          ))}
+        <div className="space-y-1 pb-4 ">
+          <RichTreeView
+            items={treefolders()}
+            slots={{ item: CustomTreeItem }}
+            expansionTrigger="iconContainer"
+            onItemExpansionToggle={handleExpand}
+            isItemEditable
+            onItemLabelChange={(itemId, label) => onRenameFolder(itemId, label)}
+          />
         </div>
       </nav>
 
-      <div className="p-4 border-t border-vault-700 bg-vault-900 z-10 gap-3 flex flex-col">
-        <button
+      <div className="p-4 border-t border-vault-700 z-10 gap-3 flex flex-col">
+        <Button
+          variant="outlined"
+          startIcon={<Settings />}
+          color="info"
           onClick={onOpenSettings}
-          className="w-full flex items-center justify-center gap-2 bg-vault-800 hover:bg-vault-700 text-slate-200 py-2 px-4 rounded-md transition-colors border border-vault-700 shadow-sm overflow-hidden"
+          className="w-full"
+          sx={{ alignItems: "center", justifyContent: "center" }}
         >
-          <Settings className="w-4 h-4 shrink-0" />
-          <span className="truncate">Settings</span>
-        </button>
+          Settings
+        </Button>
 
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-3 shadow-lg">
-          <p className="text-xs text-white/80 font-medium mb-1 truncate">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-md p-3 shadow-lg">
+          <p className="text-xs text-white/80 font-medium mb-1 truncate mb-2">
             Storage Used
           </p>
-          <div className="w-full bg-black/20 rounded-full h-1.5 mb-2 overflow-hidden">
+          <div className="w-full bg-black/20 rounded-full h-1.5 mb-1 overflow-hidden">
             <div
               className="bg-white h-full rounded-full transition-all duration-500 ease-out"
               style={{ width: `${percentUsed}%` }}
@@ -625,7 +518,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onMouseDown={startResizing}
         />
       )}
-    </div>
+    </Container>
   );
 };
 

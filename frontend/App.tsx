@@ -20,12 +20,20 @@ import {
 import JSZip from "jszip";
 import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useVisualViewport } from "./hooks/useVisualViewport";
+import Snackbar, { SnackbarCloseReason } from "@mui/material/Snackbar";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import Alert from "@mui/material/Alert";
 
 const App = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)", true);
   const isMobile = !isDesktop;
   const visualViewport = useVisualViewport();
-
+  const darkTheme = createTheme({
+    palette: {
+      mode: "dark",
+    },
+  });
   const [folders, setFolders] = useState<Folder[]>([]);
   const [models, setModels] = useState<STLModel[]>([]);
   const [storageStats, setStorageStats] = useState<StorageStats>({
@@ -34,6 +42,7 @@ const App = () => {
   });
 
   const [currentFolderId, setCurrentFolderId] = useState<string>("all");
+  const [currentFolderParentId, setCurrentFolderParentId] = useState("");
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<number>(0);
@@ -60,7 +69,7 @@ const App = () => {
   const [modelsOptions, setModelsOptions] = useState<STLModelCollection[]>([]);
   const [folderOptions, setFolderOptions] = useState<Set<string>>(new Set());
   const [selectedOptions, setSelectedOptions] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [importUrl, setImportUrl] = useState("");
   const [importFolderId, setImportFolderId] = useState("");
@@ -78,7 +87,7 @@ const App = () => {
       setIsLoading(true);
       try {
         const [fetchedFolders, fetchedModels, fetchedStats] = await Promise.all(
-          [api.getFolders(), api.getModels("all"), api.getStorageStats()]
+          [api.getFolders(), api.getModels("all"), api.getStorageStats()],
         );
         setFolders(fetchedFolders);
         setModels(fetchedModels);
@@ -91,6 +100,7 @@ const App = () => {
     };
     fetchData();
   }, []);
+  const port = localStorage.getItem("api-port-override");
 
   // Refresh storage stats when models change (upload, delete, replace)
   useEffect(() => {
@@ -115,6 +125,11 @@ const App = () => {
   // Clear selection when changing folders to avoid confusion
   useEffect(() => {
     setSelectedIds(new Set());
+    setCurrentFolderParentId(
+      currentFolderId === "all"
+        ? "all"
+        : folders.find((f) => f.id === currentFolderId)?.parentId || "all",
+    );
   }, [currentFolderId]);
 
   // Close mobile sidebar when switching to desktop
@@ -135,7 +150,7 @@ const App = () => {
       setIsMobileSidebarVisible(false);
       timeoutId = window.setTimeout(
         () => setIsMobileSidebarMounted(false),
-        transitionMs
+        transitionMs,
       );
     }
 
@@ -171,7 +186,7 @@ const App = () => {
 
   const handleCreateFolder = async (
     name: string,
-    parentId: string | null = null
+    parentId: string | null = null,
   ) => {
     try {
       const newFolder = await api.createFolder(name, parentId);
@@ -186,7 +201,7 @@ const App = () => {
     try {
       await api.updateFolder(id, newName);
       setFolders((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, name: newName } : f))
+        prev.map((f) => (f.id === id ? { ...f, name: newName } : f)),
       );
     } catch (error) {
       console.error("Failed to rename folder", error);
@@ -199,7 +214,7 @@ const App = () => {
 
     if (hasModels || hasSubfolders) {
       alert(
-        "Folder must be empty to delete. Please delete or move all models and subfolders first."
+        "Folder must be empty to delete. Please delete or move all models and subfolders first.",
       );
       return;
     }
@@ -210,29 +225,26 @@ const App = () => {
   const executeUpload = async (
     files: File[],
     targetFolderId: string,
-    tags: string[]
+    tags: string[],
   ) => {
     setUploadQueue((prev) => prev + files.length);
 
     for (const file of files) {
       try {
         let thumbnail: string | undefined = undefined;
-        const lowerName = file.name.toLowerCase();
-        if (lowerName.endsWith(".stl") || lowerName.endsWith(".3mf")) {
-          try {
-            thumbnail = await generateThumbnail(file);
-          } catch (e) {
-            console.warn(
-              "Thumbnail generation failed, uploading without thumbnail"
-            );
-          }
+        try {
+          thumbnail = await generateThumbnail(file);
+        } catch (e) {
+          console.warn(
+            "Thumbnail generation failed, uploading without thumbnail",
+          );
         }
 
         const newModel = await api.uploadModel(
           file,
           targetFolderId,
           thumbnail,
-          tags
+          tags,
         );
         setModels((prev) => [newModel, ...prev]);
       } catch (error) {
@@ -245,7 +257,7 @@ const App = () => {
 
   const handleUpload = async (
     fileList: FileList,
-    specificFolderId?: string
+    specificFolderId?: string,
   ) => {
     const files = Array.from(fileList);
 
@@ -291,7 +303,7 @@ const App = () => {
     setModelsOptions([]);
     // Pre-select current folder if specific, otherwise first available
     setImportFolderId(
-      currentFolderId !== "all" ? currentFolderId : folders[0]?.id || ""
+      currentFolderId !== "all" ? currentFolderId : folders[0]?.id || "",
     );
     setShowImportModal(true);
   };
@@ -343,7 +355,7 @@ const App = () => {
             model.parentId,
             model.previewPath,
             importFolderId,
-            model.typeName
+            model.typeName,
           );
           setUploadQueue((prev) => prev - 1);
           setModels((prev) => [newModel, ...prev]);
@@ -360,7 +372,7 @@ const App = () => {
   const handleUpdateModel = async (id: string, updates: Partial<STLModel>) => {
     try {
       setModels((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
+        prev.map((m) => (m.id === id ? { ...m, ...updates } : m)),
       );
       await api.updateModel(id, updates);
     } catch (error) {
@@ -419,11 +431,11 @@ const App = () => {
     setSelectedIds(newSet);
   };
 
-  const handleSelectAll = () => {
-    if (selectedIds.size === filteredModels.length) {
+  const handleSelectAll = (filtered) => {
+    if (selectedIds.size === filtered.length) {
       setSelectedIds(new Set());
     } else {
-      const allIds = filteredModels.map((m) => m.id);
+      const allIds = filtered.map((m) => m.id);
       setSelectedIds(new Set(allIds));
     }
   };
@@ -434,8 +446,8 @@ const App = () => {
       await api.bulkMoveModels(ids, targetFolderId);
       setModels((prev) =>
         prev.map((m) =>
-          selectedIds.has(m.id) ? { ...m, folderId: targetFolderId } : m
-        )
+          selectedIds.has(m.id) ? { ...m, folderId: targetFolderId } : m,
+        ),
       );
       setShowMoveModal(false);
       setSelectedIds(new Set());
@@ -449,8 +461,8 @@ const App = () => {
       await api.bulkMoveModels(modelIds, targetFolderId);
       setModels((prev) =>
         prev.map((m) =>
-          modelIds.includes(m.id) ? { ...m, folderId: targetFolderId } : m
-        )
+          modelIds.includes(m.id) ? { ...m, folderId: targetFolderId } : m,
+        ),
       );
       setSelectedIds(new Set());
     } catch (e) {
@@ -473,7 +485,7 @@ const App = () => {
             return { ...m, tags: [...new Set([...m.tags, ...tags])] };
           }
           return m;
-        })
+        }),
       );
       setShowTagModal(false);
       setSelectedIds(new Set());
@@ -527,716 +539,740 @@ const App = () => {
   };
 
   return (
-    <div
-      className={`${
-        isDesktop ? "flex" : "flex flex-col"
-      } h-dvh bg-vault-900 text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden`}
-    >
-      {isDesktop ? (
-        <Sidebar
-          folders={folders}
-          models={models}
-          currentFolderId={currentFolderId}
-          storageStats={storageStats}
-          onSelectFolder={(id) => {
-            setCurrentFolderId(id);
-            setSelectedModelId(null);
-            setShowSettings(false);
-          }}
-          onCreateFolder={handleCreateFolder}
-          onRenameFolder={handleRenameFolder}
-          onDeleteFolder={handleDeleteFolder}
-          onMoveToFolder={handleDropMove}
-          onUploadToFolder={(folderId, files) => handleUpload(files, folderId)}
-          onOpenSettings={() => setShowSettings(true)}
-          variant="desktop"
-        />
-      ) : (
-        <>
-          <Navbar
-            title="STL Vault"
-            subtitle={showSettings ? "Settings" : currentFolderName}
-            onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <div
+        className={`${
+          isDesktop ? "flex" : "flex flex-col"
+        } h-dvh text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden`}
+      >
+        {isDesktop ? (
+          <Sidebar
+            folders={folders}
+            models={models}
+            currentFolderId={currentFolderId}
+            storageStats={storageStats}
+            onSelectFolder={(id) => {
+              setCurrentFolderId(id);
+              setSelectedModelId(null);
+              setShowSettings(false);
+            }}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onMoveToFolder={handleDropMove}
+            onUploadToFolder={(folderId, files) =>
+              handleUpload(files, folderId)
+            }
             onOpenSettings={() => setShowSettings(true)}
-            showMenuButton={!showSettings}
+            variant="desktop"
           />
+        ) : (
+          <>
+            <Navbar
+              title="STL Vault"
+              subtitle={showSettings ? "Settings" : currentFolderName}
+              onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+              onOpenSettings={() => setShowSettings(true)}
+              showMenuButton={!showSettings}
+            />
 
-          {isMobileSidebarMounted && (
-            <div className="fixed inset-0 z-[70]">
-              <div
-                className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${
-                  isMobileSidebarVisible ? "opacity-100" : "opacity-0"
-                }`}
-                onClick={() => setIsMobileSidebarOpen(false)}
-              />
-              <div
-                className={`absolute inset-y-0 left-0 w-[85vw] max-w-[360px] transform transition-transform duration-200 ease-out ${
-                  isMobileSidebarVisible ? "translate-x-0" : "-translate-x-full"
-                }`}
-              >
-                <Sidebar
-                  folders={folders}
-                  models={models}
-                  currentFolderId={currentFolderId}
-                  storageStats={storageStats}
-                  onSelectFolder={(id) => {
-                    setCurrentFolderId(id);
-                    setSelectedModelId(null);
-                    setShowSettings(false);
-                    setIsMobileSidebarOpen(false);
+            {isMobileSidebarMounted && (
+              <div className="fixed inset-0 z-[70]">
+                <div
+                  className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${
+                    isMobileSidebarVisible ? "opacity-100" : "opacity-0"
+                  }`}
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                />
+                <div
+                  className={`absolute inset-y-0 left-0 w-[85vw] max-w-[360px] transform transition-transform duration-200 ease-out ${
+                    isMobileSidebarVisible
+                      ? "translate-x-0"
+                      : "-translate-x-full"
+                  }`}
+                >
+                  <Sidebar
+                    folders={folders}
+                    models={models}
+                    currentFolderId={currentFolderId}
+                    storageStats={storageStats}
+                    onSelectFolder={(id) => {
+                      setCurrentFolderId(id);
+                      setSelectedModelId(null);
+                      setShowSettings(false);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    onCreateFolder={handleCreateFolder}
+                    onRenameFolder={handleRenameFolder}
+                    onDeleteFolder={handleDeleteFolder}
+                    onMoveToFolder={handleDropMove}
+                    onUploadToFolder={(folderId, files) =>
+                      handleUpload(files, folderId)
+                    }
+                    onOpenSettings={() => {
+                      setShowSettings(true);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    variant="mobile"
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Settings View */}
+        {showSettings ? (
+          <Settings onBack={() => setShowSettings(false)} />
+        ) : (
+          <>
+            <main className="flex-1 flex overflow-hidden relative">
+              {isLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-vault-900 z-50">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <p className="text-slate-400 animate-pulse">
+                      Processing...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ModelList
+                  models={filteredModels}
+                  folders={filteredFolders}
+                  currentFolderName={currentFolderName}
+                  onBackNavigation={() => {
+                    setCurrentFolderId(currentFolderParentId);
                   }}
-                  onCreateFolder={handleCreateFolder}
-                  onRenameFolder={handleRenameFolder}
-                  onDeleteFolder={handleDeleteFolder}
+                  onUpload={(files) => handleUpload(files)}
+                  onImport={handleOpenImport}
+                  onSelectModel={(m) => setSelectedModelId(m.id)}
+                  onDelete={handleDeleteModel}
+                  selectedModelId={selectedModelId}
+                  // Selection Props
+                  selectedIds={selectedIds}
+                  onToggleSelection={handleToggleSelection}
+                  onSelectAll={(filtered) => handleSelectAll(filtered)}
+                  onClearSelection={() => setSelectedIds(new Set())}
+                  onNavigateFolder={(id) => setCurrentFolderId(id)}
                   onMoveToFolder={handleDropMove}
                   onUploadToFolder={(folderId, files) =>
                     handleUpload(files, folderId)
                   }
-                  onOpenSettings={() => {
-                    setShowSettings(true);
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  variant="mobile"
+                />
+              )}
+
+              {/* Upload Indicator */}
+              {uploadQueue > 0 && (
+                <div className="absolute bottom-6 left-6 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-3 animate-pulse">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-medium">
+                    Uploading {uploadQueue} file(s)...
+                  </span>
+                </div>
+              )}
+
+              {/* Backdrop for closing sidebar */}
+              <div
+                className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 transition-opacity duration-300 ${
+                  selectedModelId
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                onClick={() => setSelectedModelId(null)}
+              />
+
+              {/* Slide-over panel */}
+              <div
+                className={`absolute top-0 right-0 h-full transition-transform duration-300 ease-in-out transform ${
+                  selectedModelId ? "translate-x-0" : "translate-x-full"
+                } z-30`}
+              >
+                <DetailPanel
+                  model={selectedModel}
+                  onClose={() => setSelectedModelId(null)}
+                  onUpdate={handleUpdateModel}
+                  onDelete={handleDeleteModel}
                 />
               </div>
-            </div>
-          )}
-        </>
-      )}
 
-      {/* Settings View */}
-      {showSettings ? (
-        <Settings onBack={() => setShowSettings(false)} />
-      ) : (
-        <>
-          <main className="flex-1 flex overflow-hidden relative">
-            {isLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-vault-900 z-50">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-                  <p className="text-slate-400 animate-pulse">Processing...</p>
-                </div>
-              </div>
-            ) : (
-              <ModelList
-                models={filteredModels}
-                folders={filteredFolders}
-                onUpload={(files) => handleUpload(files)}
-                onImport={handleOpenImport}
-                onSelectModel={(m) => setSelectedModelId(m.id)}
-                onDelete={handleDeleteModel}
-                selectedModelId={selectedModelId}
-                // Selection Props
-                selectedIds={selectedIds}
-                onToggleSelection={handleToggleSelection}
-                onSelectAll={handleSelectAll}
-                onClearSelection={() => setSelectedIds(new Set())}
-                onNavigateFolder={(id) => setCurrentFolderId(id)}
-                onMoveToFolder={handleDropMove}
-                onUploadToFolder={(folderId, files) =>
-                  handleUpload(files, folderId)
-                }
-              />
-            )}
-
-            {/* Upload Indicator */}
-            {uploadQueue > 0 && (
-              <div className="absolute bottom-6 left-6 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-3 animate-pulse">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">
-                  Uploading {uploadQueue} file(s)...
-                </span>
-              </div>
-            )}
-
-            {/* Backdrop for closing sidebar */}
-            <div
-              className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] z-20 transition-opacity duration-300 ${
-                selectedModelId
-                  ? "opacity-100 pointer-events-auto"
-                  : "opacity-0 pointer-events-none"
-              }`}
-              onClick={() => setSelectedModelId(null)}
-            />
-
-            {/* Slide-over panel */}
-            <div
-              className={`absolute top-0 right-0 h-full transition-transform duration-300 ease-in-out transform ${
-                selectedModelId ? "translate-x-0" : "translate-x-full"
-              } z-30`}
-            >
-              <DetailPanel
-                model={selectedModel}
-                onClose={() => setSelectedModelId(null)}
-                onUpdate={handleUpdateModel}
-                onDelete={handleDeleteModel}
-              />
-            </div>
-
-            {/* Floating Action Bar - Moved to App to ensure it is top-level Z-index */}
-            {selectedIds.size > 0 && (
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-vault-800 border border-vault-600 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 duration-200">
-                <div className="flex items-center gap-2 border-r border-vault-600 pr-4">
-                  <span className="font-bold text-white">
-                    {selectedIds.size}
-                  </span>
-                  <span className="text-slate-400 text-sm">selected</span>
-                  <button
-                    onClick={() => setSelectedIds(new Set())}
-                    className="ml-2 text-slate-500 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowMoveModal(true)}
-                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2"
-                    title="Move Selected"
-                  >
-                    <FolderInput className="w-4 h-4" />
-                    <span className="text-sm font-medium hidden sm:inline">
-                      Move
+              {/* Floating Action Bar - Moved to App to ensure it is top-level Z-index */}
+              {selectedIds.size > 0 && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-vault-800 border border-vault-600 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 duration-200">
+                  <div className="flex items-center gap-2 border-r border-vault-600 pr-4">
+                    <span className="font-bold text-white">
+                      {selectedIds.size}
                     </span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setBulkTags("");
-                      setShowTagModal(true);
-                    }}
-                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
-                    title="Tag Selected"
-                  >
-                    <Tags className="w-4 h-4" />
-                    <span className="text-sm font-medium hidden sm:inline">
-                      Tag
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={handleBulkDownload}
-                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-green-400 transition-colors flex items-center gap-2"
-                    title="Download Selected"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span className="text-sm font-medium hidden sm:inline">
-                      Download
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={handleBulkDelete}
-                    className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-2"
-                    title="Delete Selected"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="text-sm font-medium hidden sm:inline">
-                      Delete
-                    </span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Modals Layer */}
-
-            {/* Upload Modal */}
-            {showUploadModal && (
-              <div
-                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                  visualViewport.keyboardOpen ? "items-start" : "items-center"
-                }`}
-                style={{
-                  width: "100%",
-                  height:
-                    visualViewport.height ||
-                    (typeof window !== "undefined" ? window.innerHeight : 0),
-                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                }}
-              >
-                <div
-                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                  style={{
-                    maxHeight: Math.max(
-                      240,
-                      (visualViewport.height ||
-                        (typeof window !== "undefined"
-                          ? window.innerHeight
-                          : 0)) - 32
-                    ),
-                  }}
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <FileUp className="w-5 h-5 text-blue-500" /> Upload Files
-                    </h3>
+                    <span className="text-slate-400 text-sm">selected</span>
                     <button
-                      onClick={() => setShowUploadModal(false)}
-                      className="text-slate-400 hover:text-white"
+                      onClick={() => setSelectedIds(new Set())}
+                      className="ml-2 text-slate-500 hover:text-white"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <form onSubmit={handleConfirmUpload}>
-                    <div className="mb-4 p-3 bg-vault-900/50 rounded-lg border border-vault-700/50">
-                      <p className="text-sm text-slate-300 font-medium">
-                        {pendingFiles.length} files selected
-                      </p>
-                      <p className="text-xs text-slate-500 truncate mt-1">
-                        {pendingFiles.map((f) => f.name).join(", ")}
-                      </p>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">
-                        Destination Folder
-                      </label>
-                      <select
-                        className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none"
-                        value={uploadFolderId}
-                        onChange={(e) => setUploadFolderId(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          Select a folder...
-                        </option>
-                        {folders.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="mb-6">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">
-                        Add Tags (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none placeholder:text-slate-600"
-                        placeholder="scifi, armor, weapon..."
-                        value={uploadTags}
-                        onChange={(e) => setUploadTags(e.target.value)}
-                      />
-                      <p className="text-xs text-slate-500 mt-1">
-                        Separate tags with commas
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowUploadModal(false)}
-                        className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={!uploadFolderId}
-                        className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Upload
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Import URL Modal */}
-            {showImportModal && (
-              <div
-                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                  visualViewport.keyboardOpen ? "items-start" : "items-center"
-                }`}
-                style={{
-                  width: "100%",
-                  height:
-                    visualViewport.height ||
-                    (typeof window !== "undefined" ? window.innerHeight : 0),
-                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                }}
-              >
-                <div
-                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                  style={{
-                    maxHeight: Math.max(
-                      240,
-                      (visualViewport.height ||
-                        (typeof window !== "undefined"
-                          ? window.innerHeight
-                          : 0)) - 32
-                    ),
-                  }}
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Globe className="w-5 h-5 text-indigo-500" /> Import from
-                      URL
-                    </h3>
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setShowImportModal(false)}
-                      className="text-slate-400 hover:text-white"
+                      onClick={() => setShowMoveModal(true)}
+                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2"
+                      title="Move Selected"
                     >
-                      <X className="w-5 h-5" />
+                      <FolderInput className="w-4 h-4" />
+                      <span className="text-sm font-medium hidden sm:inline">
+                        Move
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setBulkTags("");
+                        setShowTagModal(true);
+                      }}
+                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
+                      title="Tag Selected"
+                    >
+                      <Tags className="w-4 h-4" />
+                      <span className="text-sm font-medium hidden sm:inline">
+                        Tag
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={handleBulkDownload}
+                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-green-400 transition-colors flex items-center gap-2"
+                      title="Download Selected"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="text-sm font-medium hidden sm:inline">
+                        Download
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={handleBulkDelete}
+                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-2"
+                      title="Delete Selected"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="text-sm font-medium hidden sm:inline">
+                        Delete
+                      </span>
                     </button>
                   </div>
-
-                  <form onSubmit={handleImportSubmit}>
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">
-                        Model URL
-                      </label>
-                      <input
-                        autoFocus
-                        type="url"
-                        required
-                        className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
-                        placeholder="https://www.printables.com/model/..."
-                        value={importUrl}
-                        onChange={(e) => setImportUrl(e.target.value)}
-                      />
-                      <p className="text-xs text-slate-500 mt-1">
-                        Paste a link from Printables or similar sites
-                      </p>
-                    </div>
-
-                    <div className="mb-6">
-                      <label className="block text-sm font-medium text-slate-400 mb-1">
-                        Destination Folder
-                      </label>
-                      <select
-                        className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none"
-                        value={importFolderId}
-                        onChange={(e) => setImportFolderId(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          Select a folder...
-                        </option>
-                        {folders.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowImportModal(false)}
-                        className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={!importUrl || !importFolderId}
-                        className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Import
-                      </button>
-                    </div>
-                  </form>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Import Options Modal */}
-            {showImportOptionsModal && (
-              <div
-                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                  visualViewport.keyboardOpen ? "items-start" : "items-center"
-                }`}
-                style={{
-                  width: "100%",
-                  height:
-                    visualViewport.height ||
-                    (typeof window !== "undefined" ? window.innerHeight : 0),
-                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                }}
-              >
+              {/* Modals Layer */}
+
+              {/* Upload Modal */}
+              {showUploadModal && (
                 <div
-                  className="relative bg-vault-800 border border-vault-600 rounded-xl p-6 w-full lg:w-1/2 shadow-2xl animate-in zoom-in-95 duration-200 "
+                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
+                    visualViewport.keyboardOpen ? "items-start" : "items-center"
+                  }`}
                   style={{
-                    maxHeight: Math.max(
-                      240,
-                      (visualViewport.height ||
-                        (typeof window !== "undefined"
-                          ? window.innerHeight
-                          : 0)) - 32
-                    ),
+                    width: "100%",
+                    height:
+                      visualViewport.height ||
+                      (typeof window !== "undefined" ? window.innerHeight : 0),
+                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
                   }}
                 >
-                  <div className="static flex top-0 justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Globe className="w-5 h-5 text-indigo-500" /> Select model
-                      to download
-                    </h3>
-                    <button
-                      onClick={() => setShowImportOptionsModal(false)}
-                      className="text-slate-400 hover:text-white"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* File List */}
                   <div
-                    className={`static overflow-auto px-2 ${
-                      visualViewport.height > 900 ? "h-[700px]" : "h-[400px]"
-                    }`}
+                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                    style={{
+                      maxHeight: Math.max(
+                        240,
+                        (visualViewport.height ||
+                          (typeof window !== "undefined"
+                            ? window.innerHeight
+                            : 0)) - 32,
+                      ),
+                    }}
                   >
-                    {Array.from(folderOptions).map((f) => (
-                      <div>
-                        <div className="text-xl font-medium p-4">
-                          {f ? f : "Root Folder"}
-                        </div>
-                        {modelsOptions.map((model) => (
-                          <div>
-                            {model.folder == f ? (
-                              <div
-                                key={model.id}
-                                onClick={() =>
-                                  handleOptionsToggleSelection(model.id)
-                                }
-                                className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 mb-2 relative overflow-hidden
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <FileUp className="w-5 h-5 text-blue-500" /> Upload
+                        Files
+                      </h3>
+                      <button
+                        onClick={() => setShowUploadModal(false)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleConfirmUpload}>
+                      <div className="mb-4 p-3 bg-vault-900/50 rounded-lg border border-vault-700/50">
+                        <p className="text-sm text-slate-300 font-medium">
+                          {pendingFiles.length} files selected
+                        </p>
+                        <p className="text-xs text-slate-500 truncate mt-1">
+                          {pendingFiles.map((f) => f.name).join(", ")}
+                        </p>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-slate-400 mb-1">
+                          Destination Folder
+                        </label>
+                        <select
+                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none"
+                          value={uploadFolderId}
+                          onChange={(e) => setUploadFolderId(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Select a folder...
+                          </option>
+                          {folders.map((folder) => (
+                            <option key={folder.id} value={folder.id}>
+                              {folder.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-slate-400 mb-1">
+                          Add Tags (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none placeholder:text-slate-600"
+                          placeholder="scifi, armor, weapon..."
+                          value={uploadTags}
+                          onChange={(e) => setUploadTags(e.target.value)}
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          Separate tags with commas
+                        </p>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowUploadModal(false)}
+                          className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={!uploadFolderId}
+                          className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Upload
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Import URL Modal */}
+              {showImportModal && (
+                <div
+                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
+                    visualViewport.keyboardOpen ? "items-start" : "items-center"
+                  }`}
+                  style={{
+                    width: "100%",
+                    height:
+                      visualViewport.height ||
+                      (typeof window !== "undefined" ? window.innerHeight : 0),
+                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                  }}
+                >
+                  <div
+                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                    style={{
+                      maxHeight: Math.max(
+                        240,
+                        (visualViewport.height ||
+                          (typeof window !== "undefined"
+                            ? window.innerHeight
+                            : 0)) - 32,
+                      ),
+                    }}
+                  >
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-indigo-500" /> Import
+                        from URL
+                      </h3>
+                      <button
+                        onClick={() => setShowImportModal(false)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleImportSubmit}>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-slate-400 mb-1">
+                          Model URL
+                        </label>
+                        <input
+                          autoFocus
+                          type="url"
+                          required
+                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
+                          placeholder="https://www.printables.com/model/..."
+                          value={importUrl}
+                          onChange={(e) => setImportUrl(e.target.value)}
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          Paste a link from Printables or similar sites
+                        </p>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-slate-400 mb-1">
+                          Destination Folder
+                        </label>
+                        <select
+                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none"
+                          value={importFolderId}
+                          onChange={(e) => setImportFolderId(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Select a folder...
+                          </option>
+                          {folders.map((folder) => (
+                            <option key={folder.id} value={folder.id}>
+                              {folder.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowImportModal(false)}
+                          className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={!importUrl || !importFolderId}
+                          className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Import
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Options Modal */}
+              {showImportOptionsModal && (
+                <div
+                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
+                    visualViewport.keyboardOpen ? "items-start" : "items-center"
+                  }`}
+                  style={{
+                    width: "100%",
+                    height:
+                      visualViewport.height ||
+                      (typeof window !== "undefined" ? window.innerHeight : 0),
+                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                  }}
+                >
+                  <div
+                    className="relative bg-vault-800 border border-vault-600 rounded-xl p-6 w-full lg:w-1/2 shadow-2xl animate-in zoom-in-95 duration-200 "
+                    style={{
+                      maxHeight: Math.max(
+                        240,
+                        (visualViewport.height ||
+                          (typeof window !== "undefined"
+                            ? window.innerHeight
+                            : 0)) - 32,
+                      ),
+                    }}
+                  >
+                    <div className="static flex top-0 justify-between items-center mb-6">
+                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-indigo-500" /> Select
+                        model to download
+                      </h3>
+                      <button
+                        onClick={() => setShowImportOptionsModal(false)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* File List */}
+                    <div
+                      className={`static overflow-auto px-2 ${
+                        visualViewport.height > 900 ? "h-[700px]" : "h-[400px]"
+                      }`}
+                    >
+                      {Array.from(folderOptions).map((f) => (
+                        <div>
+                          <div className="text-xl font-medium p-4">
+                            {f ? f : "Root Folder"}
+                          </div>
+                          {modelsOptions.map((model) => (
+                            <div>
+                              {model.folder == f ? (
+                                <div
+                                  key={model.id}
+                                  onClick={() =>
+                                    handleOptionsToggleSelection(model.id)
+                                  }
+                                  className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 mb-2 relative overflow-hidden
                               ${
                                 selectedOptions.has(model.id)
                                   ? "border-blue-500 ring-1 ring-blue-500/50"
                                   : "border-vault-700 hover:border-vault-600"
                               }
                             `}
-                              >
-                                <div className="w-12 h-12 bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 group-hover:text-blue-400 group-hover:scale-110 transition-all shrink-0">
-                                  <img
-                                    src={model.previewPath}
-                                    alt={model.name}
-                                    className="w-12 h-12 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
-                                  />
+                                >
+                                  <div className="w-12 h-12 bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 group-hover:text-blue-400 group-hover:scale-110 transition-all shrink-0">
+                                    <img
+                                      src={model.previewPath}
+                                      alt={model.name}
+                                      className="w-12 h-12 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+                                    />
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <h3 className="font-semibold text-slate-200 truncate group-hover:text-white">
+                                      {model.name}
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                      {model.typeName}
+                                    </p>
+                                  </div>
                                 </div>
-
-                                <div className="min-w-0">
-                                  <h3 className="font-semibold text-slate-200 truncate group-hover:text-white">
-                                    {model.name}
-                                  </h3>
-                                  <p className="text-xs text-slate-500">
-                                    {model.typeName}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : (
-                              <div></div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div
-                    onClick={() => handleImportChoice()}
-                    className="static bottom-0 p-2 mt-4 cursor-pointer rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
-                  >
-                    {" "}
-                    Import{" "}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {deleteConfirmState.isOpen && (
-              <div
-                className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                  visualViewport.keyboardOpen ? "items-start" : "items-center"
-                }`}
-                style={{
-                  width: "100%",
-                  height:
-                    visualViewport.height ||
-                    (typeof window !== "undefined" ? window.innerHeight : 0),
-                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                }}
-              >
-                <div
-                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                  style={{
-                    maxHeight: Math.max(
-                      240,
-                      (visualViewport.height ||
-                        (typeof window !== "undefined"
-                          ? window.innerHeight
-                          : 0)) - 32
-                    ),
-                  }}
-                >
-                  <div className="flex flex-col items-center text-center mb-6">
-                    <div className="w-12 h-12 bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-                      <AlertTriangle className="w-6 h-6 text-red-500" />
+                              ) : (
+                                <div></div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">
-                      Confirm Deletion
-                    </h3>
-                    <p className="text-slate-400 text-sm">
-                      {deleteConfirmState.type === "single" &&
-                        "Are you sure you want to delete this model? This action cannot be undone."}
-                      {deleteConfirmState.type === "bulk" &&
-                        `Are you sure you want to delete ${selectedIds.size} models? This action cannot be undone.`}
-                      {deleteConfirmState.type === "folder" &&
-                        "Are you sure you want to delete this folder?"}
-                    </p>
-                  </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() =>
-                        setDeleteConfirmState((prev) => ({
-                          ...prev,
-                          isOpen: false,
-                        }))
-                      }
-                      className="flex-1 py-2.5 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
+                    <div
+                      onClick={() => handleImportChoice()}
+                      className="static bottom-0 p-2 mt-4 cursor-pointer rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
                     >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={executeDelete}
-                      className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
-                    >
-                      Delete
-                    </button>
+                      {" "}
+                      Import{" "}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {showMoveModal && (
-              <div
-                className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                  visualViewport.keyboardOpen ? "items-start" : "items-center"
-                }`}
-                style={{
-                  width: "100%",
-                  height:
-                    visualViewport.height ||
-                    (typeof window !== "undefined" ? window.innerHeight : 0),
-                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                }}
-              >
+              {/* Delete Confirmation Modal */}
+              {deleteConfirmState.isOpen && (
                 <div
-                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
+                    visualViewport.keyboardOpen ? "items-start" : "items-center"
+                  }`}
                   style={{
-                    maxHeight: Math.max(
-                      200,
-                      (visualViewport.height ||
-                        (typeof window !== "undefined"
-                          ? window.innerHeight
-                          : 0)) - 32
-                    ),
+                    width: "100%",
+                    height:
+                      visualViewport.height ||
+                      (typeof window !== "undefined" ? window.innerHeight : 0),
+                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
                   }}
                 >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-white flex items-center gap-2">
-                      <FolderInput className="w-4 h-4" /> Move to Folder
-                    </h3>
-                    <button
-                      onClick={() => setShowMoveModal(false)}
-                      className="text-slate-400 hover:text-white"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-                    {folders.map((folder) => (
-                      <button
-                        key={folder.id}
-                        onClick={() => handleBulkMoveSubmit(folder.id)}
-                        className="w-full text-left px-3 py-2 rounded hover:bg-vault-700 text-slate-300 hover:text-white text-sm transition-colors"
-                      >
-                        {folder.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                  <div
+                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                    style={{
+                      maxHeight: Math.max(
+                        240,
+                        (visualViewport.height ||
+                          (typeof window !== "undefined"
+                            ? window.innerHeight
+                            : 0)) - 32,
+                      ),
+                    }}
+                  >
+                    <div className="flex flex-col items-center text-center mb-6">
+                      <div className="w-12 h-12 bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+                        <AlertTriangle className="w-6 h-6 text-red-500" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">
+                        Confirm Deletion
+                      </h3>
+                      <p className="text-slate-400 text-sm">
+                        {deleteConfirmState.type === "single" &&
+                          "Are you sure you want to delete this model? This action cannot be undone."}
+                        {deleteConfirmState.type === "bulk" &&
+                          `Are you sure you want to delete ${selectedIds.size} models? This action cannot be undone.`}
+                        {deleteConfirmState.type === "folder" &&
+                          "Are you sure you want to delete this folder?"}
+                      </p>
+                    </div>
 
-            {showTagModal && (
-              <div
-                className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                  visualViewport.keyboardOpen ? "items-start" : "items-center"
-                }`}
-                style={{
-                  width: "100%",
-                  height:
-                    visualViewport.height ||
-                    (typeof window !== "undefined" ? window.innerHeight : 0),
-                  transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                }}
-              >
-                <div
-                  className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                  style={{
-                    maxHeight: Math.max(
-                      240,
-                      (visualViewport.height ||
-                        (typeof window !== "undefined"
-                          ? window.innerHeight
-                          : 0)) - 32
-                    ),
-                  }}
-                >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-white flex items-center gap-2">
-                      <Tags className="w-4 h-4" /> Add Tags
-                    </h3>
-                    <button
-                      onClick={() => setShowTagModal(false)}
-                      className="text-slate-400 hover:text-white"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <form onSubmit={handleBulkTagSubmit}>
-                    <p className="text-sm text-slate-400 mb-2">
-                      Add tags to {selectedIds.size} items (comma separated):
-                    </p>
-                    <input
-                      autoFocus
-                      type="text"
-                      className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none mb-4"
-                      placeholder="scifi, armor, weapon..."
-                      value={bulkTags}
-                      onChange={(e) => setBulkTags(e.target.value)}
-                    />
-                    <div className="flex justify-end gap-2">
+                    <div className="flex gap-3">
                       <button
-                        type="button"
-                        onClick={() => setShowTagModal(false)}
-                        className="px-3 py-1.5 text-sm text-slate-300 hover:text-white"
+                        onClick={() =>
+                          setDeleteConfirmState((prev) => ({
+                            ...prev,
+                            isOpen: false,
+                          }))
+                        }
+                        className="flex-1 py-2.5 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
                       >
                         Cancel
                       </button>
                       <button
-                        type="submit"
-                        className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded"
+                        onClick={executeDelete}
+                        className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
                       >
-                        Add Tags
+                        Delete
                       </button>
                     </div>
-                  </form>
+                  </div>
                 </div>
-              </div>
-            )}
-          </main>
-        </>
-      )}
-    </div>
+              )}
+
+              {showMoveModal && (
+                <div
+                  className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
+                    visualViewport.keyboardOpen ? "items-start" : "items-center"
+                  }`}
+                  style={{
+                    width: "100%",
+                    height:
+                      visualViewport.height ||
+                      (typeof window !== "undefined" ? window.innerHeight : 0),
+                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                  }}
+                >
+                  <div
+                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                    style={{
+                      maxHeight: Math.max(
+                        200,
+                        (visualViewport.height ||
+                          (typeof window !== "undefined"
+                            ? window.innerHeight
+                            : 0)) - 32,
+                      ),
+                    }}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-white flex items-center gap-2">
+                        <FolderInput className="w-4 h-4" /> Move to Folder
+                      </h3>
+                      <button
+                        onClick={() => setShowMoveModal(false)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                      {folders.map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => handleBulkMoveSubmit(folder.id)}
+                          className="w-full text-left px-3 py-2 rounded hover:bg-vault-700 text-slate-300 hover:text-white text-sm transition-colors"
+                        >
+                          {folder.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showTagModal && (
+                <div
+                  className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
+                    visualViewport.keyboardOpen ? "items-start" : "items-center"
+                  }`}
+                  style={{
+                    width: "100%",
+                    height:
+                      visualViewport.height ||
+                      (typeof window !== "undefined" ? window.innerHeight : 0),
+                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
+                  }}
+                >
+                  <div
+                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
+                    style={{
+                      maxHeight: Math.max(
+                        240,
+                        (visualViewport.height ||
+                          (typeof window !== "undefined"
+                            ? window.innerHeight
+                            : 0)) - 32,
+                      ),
+                    }}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-white flex items-center gap-2">
+                        <Tags className="w-4 h-4" /> Add Tags
+                      </h3>
+                      <button
+                        onClick={() => setShowTagModal(false)}
+                        className="text-slate-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <form onSubmit={handleBulkTagSubmit}>
+                      <p className="text-sm text-slate-400 mb-2">
+                        Add tags to {selectedIds.size} items (comma separated):
+                      </p>
+                      <input
+                        autoFocus
+                        type="text"
+                        className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none mb-4"
+                        placeholder="scifi, armor, weapon..."
+                        value={bulkTags}
+                        onChange={(e) => setBulkTags(e.target.value)}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowTagModal(false)}
+                          className="px-3 py-1.5 text-sm text-slate-300 hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded"
+                        >
+                          Add Tags
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </main>
+          </>
+        )}
+        <Snackbar
+          open={!port ? true : false}
+          autoHideDuration={6000}
+          message="API Host Not Set"
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Alert severity="error" variant="filled" sx={{ width: "100%" }}>
+            API Host Not Set
+          </Alert>
+        </Snackbar>
+      </div>
+    </ThemeProvider>
   );
 };
 

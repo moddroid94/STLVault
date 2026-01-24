@@ -9,10 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.7",
+    "@mui/x-tree-view": "^8.25.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.554.0",
+    "occt-import-js": "^0.0.23",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.181.2",

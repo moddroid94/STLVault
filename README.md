@@ -10,6 +10,7 @@
 [![Docker Frontend CI](https://img.shields.io/github/actions/workflow/status/moddroid94/STLVault/Docker%20Backend%20CI.yml?style=for-the-badge&logo=docker&label=Backend)](https://github.com/moddroid94/STLVault/actions/workflows/Docker%20Backend%20CI.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/moddroid94/stlvault-frontend?style=for-the-badge&logo=docker)](https://hub.docker.com/u/moddroid94)
 
+
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **STLVault** is a containerized 3D Model library manager and organizer, designed specifically for 3D printing enthusiasts. It provides a clean, modern web interface to manage your growing collection of STL, STEP, and 3MF files.
@@ -25,7 +26,8 @@
 - **🔗 URL Import:** Import multiple files from Printables URL, with granular file selection. (Only models URL)
 - **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
-- **👁️ 3D Preview:** Integrated web-based 3D viewer for STL and 3MF files.
+- **👁️ 3D Preview:** Integrated web-based 3D viewer for STL, 3MF, STEP and STP files, with Trackball/Orbit controls switch to allow full rotational freedom (beta)
+- **🖼️ Custom Thumbnails:** Generate a thumbnail of the model from the 3D viewer directly or upload an image to be shown as a thumbnail.
 - **🏷️ Metadata Management:** Add tags, descriptions, and metadata to your models for easy retrieval.
 - **🔍 Global Search:** Sidebar search and filtering to find models library-wide.
 
@@ -43,10 +45,10 @@
 
 ## 📸 Screenshots
 
-![Dashboard Preview](https://github.com/user-attachments/assets/3d8aa851-392c-4bd0-8819-2a802ec63e2c)
-![Setting Page](https://github.com/user-attachments/assets/f1326a8c-3ef0-4b17-be5a-e75aea2cb59a)
-![Upload Modal Preview](https://github.com/user-attachments/assets/34f995d3-bc09-489f-92f3-1408bf0196a0)
-![Model Viewer/Info Preview](https://github.com/user-attachments/assets/ac373cf5-3952-4336-8b56-e2864127c3aa)
+![Dashboard Preview](https://github.com/user-attachments/assets/33be62e6-d7fd-455b-9ef1-e1d363bff6f8)
+![Model Viewer/Info Preview](https://github.com/user-attachments/assets/db0c4141-51f6-408d-a6c5-9b3df20a3fc7)![ModelViewer2](https://github.com/user-attachments/assets/dc470ef9-0cf3-4f08-b60d-3985d2461576)
+![Setting Page](https://github.com/user-attachments/assets/23c703ce-73b0-43bb-9ff4-f4a64c5f7147)
+
 
 ---
 
@@ -138,18 +140,22 @@ The application requires two main volumes to persist data. If you are using the 
 - `/backend/uploads`: Stores your actual 3D model files.
 - `/backend/data`: Stores the SQLite database file.
 
-> **Tip:** If deploying on a NAS or server, map `/backend/uploads` to your existing 3D model library folder to ingest them (import functionality may be required).
-
 ---
 
 ## 🗺️ Roadmap
 
 - [x] Basic File Management (Upload, Move, Delete)
-- [x] 3D Viewer (STL, 3MF)
+- [x] 3D Viewer (STL, 3MF, STEP)
 - [x] Open in Slicer settings
-- [ ] Thumbnails / 3D viewer for STEP
-- [x] Model import via Printables URL
-- [ ] User Authentication
+- [x] Thumbnails / 3D viewer for STEP
+- [x] Model import via Printables URL with interactive models selection.
+- [ ] Backend folder structure follows frontend
+- [ ] "All models" folder Pagination to speedup large collection first load.
+- [ ] Zip Import
+- [ ] Root folder Scan and import
+- [x] Generate thumbnail from 3D Preview (to fix bad oriented models or to choose a better angle)
+- [ ] Models Collections (to group models for projects or variants)
+- [ ] Multi-User with Authentication
 
 ---
 
