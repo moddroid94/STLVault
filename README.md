@@ -62,8 +62,8 @@ services:
     image: moddroid94/stlvault-backend:latest
     pull_policy: build
     environment:
-      - FILE_STORAGE: "/app/uploads" #DO NOT CHANGE, MODIFY THE BINDS
-      - DB_PATH: "/app/data/data.db" #DO NOT CHANGE, MODIFY THE BINDS
+      - FILE_STORAGE=/app/uploads #DO NOT CHANGE, MODIFY THE BINDS
+      - DB_PATH=/app/data/data.db #DO NOT CHANGE, MODIFY THE BINDS
       - WEBUI_URL: "${APP_URL}"
     ports:
       - '8998:8080'
