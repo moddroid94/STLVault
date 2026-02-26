@@ -9,13 +9,11 @@ export default defineConfig(({ mode }) => {
     fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
   );
   const appVersion = pkgJson.version || "dev";
-  const APP_URL = "TERA_APP_URL";
-  const API_URL = "TERA_API_URL";
   return {
     base: "/",
     preview: {
       port: 5173,
-      allowedHosts: [JSON.stringify(APP_URL)],
+      allowedHosts: ["TERA_APP_URL"],
     },
     server: {
       port: 5173,
@@ -23,7 +21,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       "import.meta.env.VITE_APP_TAG": JSON.stringify(appVersion),
-      "import.meta.env.VITE_API_URL": JSON.stringify(API_URL),
+      "import.meta.env.VITE_API_URL": "TERA_API_URL",
     },
     plugins: [react()],
     resolve: {
