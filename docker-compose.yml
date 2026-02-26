@@ -4,9 +4,9 @@ services:
       context: ./backend
     pull_policy: build
     environment:
-      - FILE_STORAGE: /app/uploads #DO NOT CHANGE, MODIFY THE BINDS
-      - DB_PATH: /app/data/data.db #DO NOT CHANGE, MODIFY THE BINDS
-      - WEBUI_URL: "${APP_URL}"
+      - FILE_STORAGE=/app/uploads #DO NOT CHANGE, MODIFY THE BINDS
+      - DB_PATH=/app/data/data.db #DO NOT CHANGE, MODIFY THE BINDS
+      - WEBUI_URL=${APP_URL}
     ports:
       - "${API_PORT}:8080"
     volumes:
@@ -17,8 +17,8 @@ services:
     build:
       context: ./frontend
     environment:
-      - TERA_API_URL: "${API_URL}"
-      - TERA_APP_URL: "${APP_URL}"
+      - TERA_API_URL=${API_URL}
+      - TERA_APP_URL=${APP_URL}
     pull_policy: build
     volumes:
       - node_modules:/app/node_modules
