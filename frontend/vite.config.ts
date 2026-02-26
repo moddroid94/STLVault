@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
     fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
   );
   const appVersion = pkgJson.version || "dev";
+  const API_URL = "TERA_API_URL";
   return {
     base: "/",
     preview: {
@@ -21,7 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       "import.meta.env.VITE_APP_TAG": JSON.stringify(appVersion),
-      "import.meta.env.VITE_API_URL": "TERA_API_URL",
+      "import.meta.env.VITE_API_URL": JSON.stringify(API_URL),
     },
     plugins: [react()],
     resolve: {
