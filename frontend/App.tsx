@@ -73,7 +73,7 @@ const App = () => {
   );
   const [importUrl, setImportUrl] = useState("");
   const [importFolderId, setImportFolderId] = useState("");
-
+  const port = import.meta.env.VITE_API_URL;
   // Delete Confirmation State
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
     isOpen: boolean;
@@ -100,7 +100,6 @@ const App = () => {
     };
     fetchData();
   }, []);
-  const port = localStorage.getItem("api-port-override");
 
   // Refresh storage stats when models change (upload, delete, replace)
   useEffect(() => {
