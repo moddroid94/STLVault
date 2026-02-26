@@ -4,9 +4,9 @@ services:
       context: ./backend
     pull_policy: build
     environment:
-      - FILE_STORAGE=/app/uploads
-      - DB_PATH=/app/data/data.db
-      - WEBUI_URL=${BASE_URL}:${WWW_PORT}
+      - FILE_STORAGE: "/app/uploads" #DO NOT CHANGE, MODIFY THE BINDS
+      - DB_PATH: "/app/data/data.db" #DO NOT CHANGE, MODIFY THE BINDS
+      - WEBUI_URL: "${APP_URL}"
     ports:
       - "${API_PORT}:8080"
     volumes:
@@ -16,14 +16,14 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        - VITE_APP_API=${BASE_URL}:${API_PORT}
-        - VITE_APP_TAG=${SEMVER}
+    environment:
+      - TERA_API_URL: "${API_URL}"
+      - TERA_APP_URL: "${APP_URL}"
     pull_policy: build
     volumes:
       - node_modules:/app/node_modules
     ports:
-      - "${WWW_PORT}:5173"
+      - "${APP_PORT}:5173"
     depends_on:
       - backend
     restart: always

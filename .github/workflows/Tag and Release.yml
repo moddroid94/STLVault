@@ -1,11 +1,6 @@
 name: Tag and Release
 
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - '.env'
   workflow_dispatch:
 
 jobs:
@@ -22,7 +17,7 @@ jobs:
         id: version
         with:
           scheme: conventional_commits
-      
+
       - name: Tag and Release
         uses: BrandonStudio/tag-and-release@v1
         with:

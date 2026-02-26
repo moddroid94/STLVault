@@ -6,22 +6,26 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
   const pkgJson = JSON.parse(
-    fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+    fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
   );
-  const appVersion = env.VITE_APP_TAG || pkgJson.version || "dev";
+  const appVersion = pkgJson.version || "dev";
+  const APP_URL = "TERA_APP_URL";
+  const API_URL = "TERA_API_URL";
   return {
     base: "/",
     preview: {
       port: 5173,
+      allowedHosts: [JSON.stringify(APP_URL)],
     },
     server: {
       port: 5173,
       host: "0.0.0.0",
     },
-    plugins: [react()],
     define: {
-      __APP_VERSION__: JSON.stringify(appVersion),
+      "import.meta.env.VITE_APP_TAG": JSON.stringify(appVersion),
+      "import.meta.env.VITE_API_URL": JSON.stringify(API_URL),
     },
+    plugins: [react()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),

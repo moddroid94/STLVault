@@ -10,7 +10,6 @@
 [![Docker Frontend CI](https://img.shields.io/github/actions/workflow/status/moddroid94/STLVault/Docker%20Backend%20CI.yml?style=for-the-badge&logo=docker&label=Backend)](https://github.com/moddroid94/STLVault/actions/workflows/Docker%20Backend%20CI.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/moddroid94/stlvault-frontend?style=for-the-badge&logo=docker)](https://hub.docker.com/u/moddroid94)
 
-
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **STLVault** is a containerized 3D Model library manager and organizer, designed specifically for 3D printing enthusiasts. It provides a clean, modern web interface to manage your growing collection of STL, STEP, and 3MF files.
@@ -49,7 +48,6 @@
 ![Model Viewer/Info Preview](https://github.com/user-attachments/assets/db0c4141-51f6-408d-a6c5-9b3df20a3fc7)![ModelViewer2](https://github.com/user-attachments/assets/dc470ef9-0cf3-4f08-b60d-3985d2461576)
 ![Setting Page](https://github.com/user-attachments/assets/23c703ce-73b0-43bb-9ff4-f4a64c5f7147)
 
-
 ---
 
 ## 🚀 Deployment
@@ -64,9 +62,9 @@ services:
     image: moddroid94/stlvault-backend:latest
     pull_policy: build
     environment:
-      - FILE_STORAGE=/app/uploads
-      - DB_PATH=/app/data/data.db
-      - WEBUI_URL=http://192.168.178.21:8999
+      - FILE_STORAGE: "/app/uploads" #DO NOT CHANGE, MODIFY THE BINDS
+      - DB_PATH: "/app/data/data.db" #DO NOT CHANGE, MODIFY THE BINDS
+      - WEBUI_URL: "${APP_URL}"
     ports:
       - '8998:8080'
     volumes:
@@ -76,6 +74,9 @@ services:
   stlvfrontend:
     image: moddroid94/stlvault-frontend:latest
     pull_policy: build
+    environment:
+      - TERA_API_URL: "${API_URL}"
+      - TERA_APP_URL: "${APP_URL}"
     volumes:
       - node_modules:/app/node_modules
     ports:
@@ -97,14 +98,14 @@ volumes:
     ```
 
 2.  **Configure Environment:**
-    Review the `stack.env` file. You can modify the ports or URL if necessary, don't change the SEMVER tag.
+    Review the `stack.env` file. You can modify the ports/URL if necessary.
 
     ```bash
     # stack.env example
-    BASE_URL=http://0.0.0.0
-    WWW_PORT=8989
-    API_PORT=8988
-    SEMVER=x.x.x
+    APP_URL=http://192.168.0.17:8999
+    API_URL=http://192.168.0.17:8998
+    APP_PORT=8999
+    API_PORT=8998
     ```
 
 3.  **Start the Stack:**
@@ -114,22 +115,16 @@ volumes:
     ```
 
 4.  **Access the App:**
-    Open your browser and navigate to `http://localhost:8989` (or the port you configured).
+    Open your browser and navigate to `http://localhost:8999` (or the port you configured).
 
-### Portainer
+### GitOps (Deploy from Repo)
 
-You can deploy STLVault directly from Portainer using the repository as a stack source.
+You can deploy STLVault directly from any git deploy compatible docker manager using the repository as a stack source.
 
 1.  Create a new **Stack**.
 2.  Select **Repository** as the build method.
 3.  Enter the repository URL: `https://github.com/moddroid94/STLVault`.
-4.  **Environment Variables:** Define the variables below in the Portainer UI (variable substitution will automatically update `stack.env`).
-
-    | Variable   | Default          | Description                       |
-    | :--------- | :--------------- | :-------------------------------- |
-    | `BASE_URL` | `http://0.0.0.0` | The base URL for the application. |
-    | `WWW_PORT` | `8989`           | Port for the Frontend Web UI.     |
-    | `API_PORT` | `8988`           | Port for the Backend API.         |
+4.  **Environment Variables:** Define the environment variables in the Docker Manager UI.
 
 ---
 

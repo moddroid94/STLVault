@@ -1,6 +1,9 @@
 name: Bump App Semver
 
 on:
+  push:
+    branches:
+      - "main"
   pull_request:
     types:
       - closed
@@ -27,14 +30,6 @@ jobs:
         with:
           scheme: conventional_commits
 
-      - name: Find and Replace in env
-        uses: thiagodnf/string-replacer@v1.0.2
-        with:
-          find: "SEMVER=.+"
-          replace: "SEMVER=${{ steps.version.outputs.version }}"
-          include: |
-            .env
-      
       - name: Find and Replace in package
         uses: thiagodnf/string-replacer@v1.0.2
         with:
@@ -47,4 +42,4 @@ jobs:
         uses: EndBug/add-and-commit@v9
         with:
           message: ${{ github.event.pull_request.title }}
-          add: '[".env", "frontend/package.json"]'
+          add: '["frontend/package.json"]'

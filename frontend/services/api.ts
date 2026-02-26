@@ -6,7 +6,7 @@ let API_BASE_URL = "";
 if (localStorage.getItem("api-port-override")) {
   API_BASE_URL = localStorage.getItem("api-port-override") + "/api";
 } else {
-  const url = import.meta.env.VITE_APP_API + "/api";
+  const url = import.meta.env.VITE_API_URL + "/api";
   API_BASE_URL = url;
 }
 
@@ -23,7 +23,7 @@ export const api = {
   // 2. CREATE Folder
   createFolder: async (
     name: string,
-    parentId: string | null = null
+    parentId: string | null = null,
   ): Promise<Folder> => {
     const res = await fetch(`${API_BASE_URL}/folders`, {
       method: "POST",
@@ -66,7 +66,7 @@ export const api = {
     file: File,
     folderId: string,
     thumbnail?: string,
-    tags: string[] = []
+    tags: string[] = [],
   ): Promise<STLModel> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -86,7 +86,7 @@ export const api = {
   // 7. UPDATE Model
   updateModel: async (
     id: string,
-    updates: Partial<STLModel>
+    updates: Partial<STLModel>,
   ): Promise<STLModel> => {
     const res = await fetch(`${API_BASE_URL}/models/${id}`, {
       method: "PATCH",
@@ -187,7 +187,14 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/printables/importid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, parentId, previewPath, folderId, typeName }),
+      body: JSON.stringify({
+        id,
+        name,
+        parentId,
+        previewPath,
+        folderId,
+        typeName,
+      }),
     });
     if (!res.ok) throw new Error("Import failed");
     return res.json();
@@ -197,7 +204,7 @@ export const api = {
   replaceModelFile: async (
     id: string,
     file: File,
-    thumbnail?: string
+    thumbnail?: string,
   ): Promise<STLModel> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -212,10 +219,7 @@ export const api = {
   },
 
   // 14a. REPLACE FILE
-  replaceModelThumbnail: async (
-    id: string,
-    file: File,
-  ): Promise<STLModel> => {
+  replaceModelThumbnail: async (id: string, file: File): Promise<STLModel> => {
     const formData = new FormData();
     formData.append("file", file);
 

@@ -36,7 +36,7 @@ let API_BASE_URL = "";
 if (localStorage.getItem("api-port-override")) {
   API_BASE_URL = localStorage.getItem("api-port-override");
 } else {
-  const url = import.meta.env.VITE_APP_API;
+  const url = import.meta.env.VITE_API_URL;
   API_BASE_URL = url;
 }
 

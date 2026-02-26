@@ -36,7 +36,7 @@ import Button from "@mui/material/Button";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Badge from "@mui/material/Badge";
 
-const APP_TAG = import.meta.env.VITE_APP_TAG || __APP_VERSION__ || "dev";
+const APP_TAG = import.meta.env.VITE_APP_TAG || "dev";
 
 interface SidebarProps {
   folders: Folder[];
@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creatingSubfolderId, setCreatingSubfolderId] = useState<string | null>(
-    null
+    null,
   );
   const [dragTargetId, setDragTargetId] = useState<string | null>(null);
 
@@ -89,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       e.preventDefault(); // Prevent text selection
       setIsResizing(true);
     },
-    [isDesktopVariant]
+    [isDesktopVariant],
   );
 
   // Calculate direct counts only (not recursive, matching file system behavior usually)
@@ -297,7 +297,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={onPlusClick}
             aria-label="select item"
             size="small"
-            sx={{ color: 'grey.300' }}
+            sx={{ color: "grey.300" }}
           >
             <PlusIcon />
           </IconButton>
@@ -306,7 +306,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             aria-label="select item"
             size="small"
             edge="end"
-            sx={{ color: 'grey.300' }}
+            sx={{ color: "grey.300" }}
           >
             <Trash2 />
           </IconButton>
@@ -317,7 +317,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const CustomTreeItem = React.forwardRef(function CustomTreeItem(
     props: TreeItemProps,
-    ref: React.Ref<HTMLLIElement>
+    ref: React.Ref<HTMLLIElement>,
   ) {
     const { interactions, status } = useTreeItemUtils({
       itemId: props.itemId,
@@ -325,7 +325,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     });
 
     const handleContentClick: UseTreeItemContentSlotOwnProps["onClick"] = (
-      event
+      event,
     ) => {
       onSelectFolder(props.itemId);
     };

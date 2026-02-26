@@ -37,7 +37,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   });
 
   const [selectedApiPort, setSelectedApiPort] = useState<string>(() => {
-    const envport = import.meta.env.VITE_APP_API;
+    const envport = import.meta.env.VITE_API_URL;
     const port = localStorage.getItem("api-port-override");
     if (port) {
       setApiPortStatus(true);
@@ -184,8 +184,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               </div>
             </form>
           </div>
-
-          
         </div>
       </div>
     </div>

@@ -1,14 +1,13 @@
-
 // Vite environment variables type declaration
 declare global {
-  interface ImportMeta {
-    env: {
-      VITE_APP_TAG: string;
-      [key: string]: any;
-    };
+  interface ImportMetaEnv {
+    readonly VITE_APP_TAG: string;
+    readonly VITE_API_URL: string;
   }
-  
-  const __APP_VERSION__: string;
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
 }
 
 export interface Folder {
@@ -46,8 +45,8 @@ export interface StorageStats {
 }
 
 export enum ViewMode {
-  GRID = 'GRID',
-  LIST = 'LIST',
+  GRID = "GRID",
+  LIST = "LIST",
 }
 
 export type AppState = {
