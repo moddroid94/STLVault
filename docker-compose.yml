@@ -10,8 +10,8 @@ services:
     ports:
       - "${API_PORT}:8080"
     volumes:
-      - ./backend/uploads:/app/uploads
-      - ./backend/data:/app/data
+      - ${UPLOAD_PATH}:/app/uploads
+      - ${DATA_PATH}:/app/data
     restart: always
   frontend:
     build:

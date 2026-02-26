@@ -106,6 +106,8 @@ volumes:
     API_URL=http://192.168.0.17:8998
     APP_PORT=8999
     API_PORT=8998
+    UPLOAD_PATH=/your/mount/path
+    DATA_PATH=/your/mount/otherpath
     ```
 
 3.  **Start the Stack:**
