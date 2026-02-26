@@ -98,7 +98,7 @@ volumes:
     ```
 
 2.  **Configure Environment:**
-    Review the `stack.env` file. You can modify the ports/URL if necessary.
+    Review the `.env` file. You can modify the ports/URL if necessary.
 
     ```bash
     # stack.env example
