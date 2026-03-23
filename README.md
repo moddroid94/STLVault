@@ -101,7 +101,7 @@ volumes:
     Review the `.env` file. You can modify the ports/URL if necessary.
 
     ```bash
-    # stack.env example
+    # .env example
     APP_URL=http://192.168.0.17:8999
     API_URL=http://192.168.0.17:8998
     APP_PORT=8999
