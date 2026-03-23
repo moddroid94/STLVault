@@ -200,6 +200,16 @@ def get_models(folderId: Optional[str] = None):
     conn.close()
     return [row_to_model(r) for r in rows]
 
+def get_model_info(modelId):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    m = None
+    if modelId is not None:
+        m = cur.execute("SELECT * FROM models WHERE id=?", (modelId,)).fetchone()
+    else:
+        return None
+    conn.close()
+    return row_to_model(m)
 
 @app.post("/api/models/upload")
 def upload_model(
@@ -313,12 +323,13 @@ def delete_model(model_id: str):
 @app.get("/api/models/{model_id}/download")
 def download_model(model_id: str):
     # Find file matching id
+    m_info = get_model_info(model_id)
     for fname in os.listdir(UPLOAD_DIR):
         if fname.startswith(model_id):
             return FileResponse(
                 os.path.join(UPLOAD_DIR, fname),
                 media_type="application/octet-stream",
-                filename=fname,
+                filename=m_info["name"],
             )
     raise HTTPException(status_code=404, detail="File not found")
 
@@ -542,7 +553,7 @@ if __name__ == "__main__":
     # Ensure upload directory exists
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     
-    port = int(os.getenv("PORT", "8080"))
+    port = int(os.getenv("PORT", "5173"))
     
     uvicorn.run(
         "app:app",
