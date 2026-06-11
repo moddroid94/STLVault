@@ -4,6 +4,7 @@ import ModelList from "./components/ModelList";
 import DetailPanel from "./components/DetailPanel";
 import Settings from "./components/Settings";
 import Navbar from "./components/Navbar";
+import ManualModal from "./components/ManualModal";
 import { STLModel, Folder, StorageStats, STLModelCollection } from "./types";
 import { generateThumbnail } from "./services/thumbnailGenerator";
 import { api } from "./services/api";
@@ -80,6 +81,11 @@ const App = () => {
     type: "single" | "bulk" | "folder";
     id?: string;
   }>({ isOpen: false, type: "single" });
+
+  const [manualState, setManualState] = useState<{
+    id: string | null;
+    mode: "view" | "edit";
+  }>({ id: null, mode: "view" });
 
   // Initial Data Fetch
   useEffect(() => {
@@ -177,6 +183,7 @@ const App = () => {
   }, [isMobileSidebarMounted]);
 
   const selectedModel = models.find((m) => m.id === selectedModelId) || null;
+  const manualModel = models.find((m) => m.id === manualState.id) || null;
 
   const currentFolderName =
     currentFolderId === "all"
@@ -396,6 +403,32 @@ const App = () => {
       await api.updateModel(id, updates);
     } catch (error) {
       console.error("Failed to update model:", error);
+    }
+  };
+
+  const handleUploadManual = async (id: string, file: File) => {
+    try {
+      const updated = await api.uploadManual(id, file);
+      setModels((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, manual: updated.manual } : m)),
+      );
+      return updated;
+    } catch (error) {
+      console.error("Failed to upload manual:", error);
+      alert("Failed to upload manual");
+      throw error;
+    }
+  };
+
+  const handleDeleteManual = async (id: string) => {
+    try {
+      const updated = await api.deleteManual(id);
+      setModels((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, manual: updated.manual } : m)),
+      );
+    } catch (error) {
+      console.error("Failed to delete manual:", error);
+      alert("Failed to delete manual");
     }
   };
 
@@ -668,6 +701,9 @@ const App = () => {
                   onImport={handleOpenImport}
                   onSelectModel={(m) => setSelectedModelId(m.id)}
                   onDelete={handleDeleteModel}
+                  onOpenManual={(m) =>
+                    setManualState({ id: m.id, mode: "view" })
+                  }
                   selectedModelId={selectedModelId}
                   // Selection Props
                   selectedIds={selectedIds}
@@ -713,6 +749,14 @@ const App = () => {
                   onClose={() => setSelectedModelId(null)}
                   onUpdate={handleUpdateModel}
                   onDelete={handleDeleteModel}
+                  onOpenManual={(m) =>
+                    setManualState({ id: m.id, mode: "view" })
+                  }
+                  onEditManual={(m) =>
+                    setManualState({ id: m.id, mode: "edit" })
+                  }
+                  onUploadManual={handleUploadManual}
+                  onDeleteManual={handleDeleteManual}
                 />
               </div>
 
@@ -784,6 +828,13 @@ const App = () => {
               )}
 
               {/* Modals Layer */}
+
+              <ManualModal
+                model={manualModel}
+                initialMode={manualState.mode}
+                onClose={() => setManualState({ id: null, mode: "view" })}
+                onSave={handleUploadManual}
+              />
 
               {/* Upload Modal */}
               {showUploadModal && (

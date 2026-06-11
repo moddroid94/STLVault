@@ -15,6 +15,7 @@ import {
   RefreshCw,
   AlertTriangle,
   ScreenShareIcon,
+  BookOpen,
 } from "lucide-react";
 
 import { generateThumbnail } from "../services/thumbnailGenerator";
@@ -28,12 +29,18 @@ import TextField from "@mui/material/TextField";
 import Badge from "@mui/material/Badge";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 
 interface DetailPanelProps {
   model: STLModel | null;
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<STLModel>) => void;
   onDelete: (id: string) => void;
+  onOpenManual: (model: STLModel) => void;
+  onEditManual: (model: STLModel) => void;
+  onUploadManual: (id: string, file: File) => void | Promise<void>;
+  onDeleteManual: (id: string) => void | Promise<void>;
 }
 
 const DetailPanel: React.FC<DetailPanelProps> = ({
@@ -41,6 +48,10 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   onClose,
   onUpdate,
   onDelete,
+  onOpenManual,
+  onEditManual,
+  onUploadManual,
+  onDeleteManual,
 }) => {
   const [isReplacing, setIsReplacing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -54,6 +65,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   }>({ show: false, message: "" });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const manualInputRef = useRef<HTMLInputElement>(null);
 
   // Reset local state when model changes
   React.useEffect(() => {
@@ -153,6 +165,18 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
 
   const handleGenerateThumbnail = (dataurl: string) => {
     setTempThumb(dataurl);
+  };
+
+  const handleManualUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !model) return;
+    try {
+      await onUploadManual(model.id, file);
+    } finally {
+      if (manualInputRef.current) manualInputRef.current.value = "";
+    }
   };
 
   const handleSave = () => {
@@ -289,6 +313,94 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             ) : (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {model.description || "No Description"}
+              </Typography>
+            )}
+          </div>
+          <Divider />
+
+          <div>
+            <Typography variant="body1" gutterBottom>
+              Manual
+            </Typography>
+
+            {isEditing ? (
+              model.manual ? (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: "center", minWidth: 0 }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {model.manual}
+                  </Typography>
+                  <Tooltip title="Edit manual">
+                    <IconButton
+                      size="small"
+                      onClick={() => onEditManual(model)}
+                      aria-label="edit manual"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Delete manual">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => onDeleteManual(model.id)}
+                      aria-label="delete manual"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              ) : (
+                <Stack direction="column" spacing={1}>
+                  <Button
+                    fullWidth
+                    component="label"
+                    variant="contained"
+                    startIcon={<FileUp />}
+                  >
+                    Upload Manual
+                    <input
+                      type="file"
+                      ref={manualInputRef}
+                      className="hidden"
+                      accept=".md,.markdown,text/markdown"
+                      onChange={handleManualUpload}
+                    />
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<Edit />}
+                    onClick={() => onEditManual(model)}
+                  >
+                    Or paste
+                  </Button>
+                </Stack>
+              )
+            ) : model.manual ? (
+              <Button
+                fullWidth
+                onClick={() => onOpenManual(model)}
+                variant="outlined"
+                startIcon={<BookOpen />}
+              >
+                Open Manual
+              </Button>
+            ) : (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                No manual
               </Typography>
             )}
           </div>

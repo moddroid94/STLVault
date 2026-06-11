@@ -1,0 +1,82 @@
+.manual-content {
+  color: #e2e8f0;
+  line-height: 1.65;
+  word-wrap: break-word;
+}
+.manual-content h1,
+.manual-content h2,
+.manual-content h3,
+.manual-content h4,
+.manual-content h5,
+.manual-content h6 {
+  color: #f8fafc;
+  font-weight: 600;
+  margin: 1.25em 0 0.5em;
+  line-height: 1.3;
+}
+.manual-content h1 { font-size: 1.5rem; border-bottom: 1px solid #334155; padding-bottom: 0.3em; }
+.manual-content h2 { font-size: 1.25rem; border-bottom: 1px solid #334155; padding-bottom: 0.2em; }
+.manual-content h3 { font-size: 1.125rem; }
+.manual-content h4 { font-size: 1rem; }
+.manual-content p { margin: 0.75em 0; }
+.manual-content a { color: #60a5fa; text-decoration: underline; }
+.manual-content a:hover { color: #93c5fd; }
+.manual-content ul,
+.manual-content ol { margin: 0.75em 0; padding-left: 1.5em; }
+.manual-content ul { list-style: disc; }
+.manual-content ol { list-style: decimal; }
+.manual-content li { margin: 0.25em 0; }
+.manual-content li > p { margin: 0.25em 0; }
+.manual-content blockquote {
+  margin: 0.75em 0;
+  padding: 0.25em 0.9em;
+  border-left: 3px solid #475569;
+  color: #cbd5e1;
+  background: rgba(51, 65, 85, 0.25);
+  border-radius: 0 4px 4px 0;
+}
+.manual-content code {
+  background: #0f172a;
+  color: #f1f5f9;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.manual-content pre {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+.manual-content pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem;
+}
+.manual-content table {
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  width: 100%;
+}
+.manual-content th,
+.manual-content td {
+  border: 1px solid #334155;
+  padding: 0.45em 0.7em;
+  text-align: left;
+}
+.manual-content th {
+  background: #1e293b;
+  font-weight: 600;
+}
+.manual-content hr {
+  border: 0;
+  border-top: 1px solid #334155;
+  margin: 1em 0;
+}
+.manual-content img {
+  max-width: 100%;
+  border-radius: 6px;
+}

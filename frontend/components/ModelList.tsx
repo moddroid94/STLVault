@@ -13,6 +13,7 @@ import {
   ScreenShareIcon,
   XCircle,
   ChevronLeft,
+  BookOpen,
 } from "lucide-react";
 import { STLModel, Folder } from "../types";
 import { api } from "../services/api";
@@ -50,6 +51,7 @@ interface ModelListProps {
   onImport: () => void;
   onSelectModel: (model: STLModel) => void;
   onDelete: (id: string) => void;
+  onOpenManual: (model: STLModel) => void;
   selectedModelId: string | null;
 
   // Selection Props
@@ -81,6 +83,7 @@ const ModelList: React.FC<ModelListProps> = ({
   onImport,
   onSelectModel,
   onDelete,
+  onOpenManual,
   selectedModelId,
   selectedIds,
   onToggleSelection,
@@ -633,6 +636,19 @@ const ModelList: React.FC<ModelListProps> = ({
                           <ScreenShareIcon />
                         </IconButton>
                       </Tooltip>
+                      {model.manual && (
+                        <Tooltip title="Manual">
+                          <IconButton
+                            aria-label="open manual"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenManual(model);
+                            }}
+                          >
+                            <BookOpen />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <div className="absolute right-2">
                         <IconButton
                           id={`fade-button-${model.id}`}
