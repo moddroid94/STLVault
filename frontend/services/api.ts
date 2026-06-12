@@ -1,5 +1,4 @@
 import { Folder, STLModel, StorageStats, STLModelCollection } from "../types";
-import { v4 as uuidv4 } from "uuid";
 
 let API_BASE_URL = "";
 
@@ -228,6 +227,33 @@ export const api = {
       body: formData,
     });
     if (!res.ok) throw new Error("File replacement failed");
+    return res.json();
+  },
+
+  // 14b. GET Manual URL
+  getManualUrl: (model: STLModel) => {
+    return `${API_BASE_URL}/models/${model.id}/manual`;
+  },
+
+  // 14c. UPLOAD Manual
+  uploadManual: async (id: string, file: File): Promise<STLModel> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_BASE_URL}/models/${id}/manual`, {
+      method: "PUT",
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Manual upload failed");
+    return res.json();
+  },
+
+  // 14d. DELETE Manual
+  deleteManual: async (id: string): Promise<STLModel> => {
+    const res = await fetch(`${API_BASE_URL}/models/${id}/manual`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Manual delete failed");
     return res.json();
   },
 

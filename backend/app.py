@@ -23,6 +23,8 @@ from importers import printables
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
+MANUAL_DIR = Path(os.getenv("MANUAL_STORAGE", UPLOAD_DIR / "manuals"))
+MANUAL_DIR.mkdir(parents=True, exist_ok=True)
 WEBUI_URL = os.getenv("WEBUI_URL", "http://localhost:8989")
 
 
@@ -70,10 +72,15 @@ def init_db():
             dateAdded INTEGER,
             tags TEXT,
             description TEXT,
-            thumbnail TEXT
+            thumbnail TEXT,
+            manual TEXT
         )
         """
     )
+    try:
+        cur.execute("ALTER TABLE models ADD COLUMN manual TEXT")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
     # seed folders if empty
@@ -119,6 +126,7 @@ def row_to_model(row: sqlite3.Row) -> Dict[str, Any]:
         "tags": tags,
         "description": row["description"] or "",
         "thumbnail": row["thumbnail"],
+        "manual": row["manual"] if "manual" in row.keys() else None,
     }
 
 
@@ -314,6 +322,12 @@ def delete_model(model_id: str):
                 os.remove(os.path.join(UPLOAD_DIR, fname))
             except Exception:
                 pass
+    manual_path = MANUAL_DIR / f"{model_id}.md"
+    if manual_path.exists():
+        try:
+            manual_path.unlink()
+        except Exception:
+            pass
     cur.execute("DELETE FROM models WHERE id=?", (model_id,))
     conn.commit()
     conn.close()
@@ -347,6 +361,12 @@ def bulk_delete(payload: dict):
                     os.remove(os.path.join(UPLOAD_DIR, fname))
                 except Exception:
                     pass
+        manual_path = MANUAL_DIR / f"{mid}.md"
+        if manual_path.exists():
+            try:
+                manual_path.unlink()
+            except Exception:
+                pass
         cur.execute("DELETE FROM models WHERE id=?", (mid,))
     conn.commit()
     conn.close()
@@ -455,11 +475,65 @@ def replace_model_thumbnail(
     return row_to_model(row)
 
 
+@app.get("/api/models/{model_id}/manual")
+def get_model_manual(model_id: str):
+    path = MANUAL_DIR / f"{model_id}.md"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Manual not found")
+    return FileResponse(path, media_type="text/markdown")
+
+
+@app.put("/api/models/{model_id}/manual")
+def upload_model_manual(model_id: str, file: UploadFile = File(...)):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    if not m:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    path = MANUAL_DIR / f"{model_id}.md"
+    save_upload_file(file, str(path))
+
+    cur.execute(
+        "UPDATE models SET manual=? WHERE id=?",
+        (file.filename, model_id),
+    )
+    conn.commit()
+    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    conn.close()
+    return row_to_model(row)
+
+
+@app.delete("/api/models/{model_id}/manual")
+def delete_model_manual(model_id: str):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    if not m:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    path = MANUAL_DIR / f"{model_id}.md"
+    if path.exists():
+        try:
+            path.unlink()
+        except Exception:
+            pass
+
+    cur.execute("UPDATE models SET manual=NULL WHERE id=?", (model_id,))
+    conn.commit()
+    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    conn.close()
+    return row_to_model(row)
+
+
 @app.get("/api/storage-stats")
 def storage_stats():
     used = 0
-    for fname in os.listdir(UPLOAD_DIR):
-        used += os.path.getsize(os.path.join(UPLOAD_DIR, fname))
+    for root, _dirs, files in os.walk(UPLOAD_DIR):
+        for fname in files:
+            used += os.path.getsize(os.path.join(root, fname))
     total = 5 * 1024 * 1024 * 1024
     return {"used": used, "total": total}
 
