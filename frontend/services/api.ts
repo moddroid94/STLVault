@@ -124,6 +124,7 @@ export const api = {
       prusaslicer: "prusaslicer://open?file=",
       bambu: "bambustudio://open?file=",
       cura: "cura://open?file=",
+      creality: "crealityprintlink://open?file=",
     };
 
     const protocol =

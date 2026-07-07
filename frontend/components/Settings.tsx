@@ -14,7 +14,7 @@ interface SettingsProps {
   onBack: () => void;
 }
 
-type SlicerType = "orcaslicer" | "prusaslicer" | "bambu" | "cura";
+type SlicerType = "orcaslicer" | "prusaslicer" | "bambu" | "cura" | "creality";
 
 interface SlicerConfig {
   name: string;
@@ -26,6 +26,7 @@ const SLICERS: Record<SlicerType, SlicerConfig> = {
   prusaslicer: { name: "PrusaSlicer", protocol: "prusaslicer://open?file=" },
   bambu: { name: "Bambu Studio", protocol: "bambustudio://open?file=" },
   cura: { name: "Cura", protocol: "cura://open?file=" },
+  creality: { name: "Creality Print", protocol: "crealityprintlink://open?file=" },
 };
 
 const Settings: React.FC<SettingsProps> = ({ onBack }) => {
