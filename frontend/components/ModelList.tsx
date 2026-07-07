@@ -16,7 +16,12 @@ import {
   BookOpen,
 } from "lucide-react";
 import { STLModel, Folder } from "../types";
-import { api } from "../services/api";
+import {
+  api,
+  getEnabledLaunchSlicers,
+  SLICERS,
+  SlicerType,
+} from "../services/api";
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -104,6 +109,12 @@ const ModelList: React.FC<ModelListProps> = ({
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [slicerAnchorEl, setSlicerAnchorEl] =
+    React.useState<null | HTMLElement>(null);
+  const [slicerModel, setSlicerModel] = useState<STLModel | null>(null);
+  const [enabledSlicers, setEnabledSlicers] = useState<SlicerType[]>(() =>
+    getEnabledLaunchSlicers(),
+  );
 
   const VisuallyHiddenInput = styled("input")({
     clip: "rect(0 0 0 0)",
@@ -122,6 +133,17 @@ const ModelList: React.FC<ModelListProps> = ({
     const isTouch =
       "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
     setIsTouchDevice(Boolean(isTouch));
+  }, []);
+
+  useEffect(() => {
+    const refreshEnabledSlicers = () =>
+      setEnabledSlicers(getEnabledLaunchSlicers());
+    window.addEventListener("focus", refreshEnabledSlicers);
+    window.addEventListener("storage", refreshEnabledSlicers);
+    return () => {
+      window.removeEventListener("focus", refreshEnabledSlicers);
+      window.removeEventListener("storage", refreshEnabledSlicers);
+    };
   }, []);
 
   const processedModels = useMemo(() => {
@@ -170,6 +192,33 @@ const ModelList: React.FC<ModelListProps> = ({
     result.sort((a, b) => a.name.localeCompare(b.name));
     return result;
   }, [folders, searchQuery]);
+
+  const openSlicerLauncher = (
+    event: React.MouseEvent<HTMLElement>,
+    model: STLModel,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const launchSlicers = getEnabledLaunchSlicers();
+    setEnabledSlicers(launchSlicers);
+    if (launchSlicers.length === 1) {
+      window.location.href = api.getSlicerUrl(model, launchSlicers[0]);
+      return;
+    }
+    setSlicerAnchorEl(event.currentTarget);
+    setSlicerModel(model);
+  };
+
+  const closeSlicerMenu = () => {
+    setSlicerAnchorEl(null);
+    setSlicerModel(null);
+  };
+
+  const openModelInSlicer = (slicer: SlicerType) => {
+    if (!slicerModel) return;
+    window.location.href = api.getSlicerUrl(slicerModel, slicer);
+    closeSlicerMenu();
+  };
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -628,14 +677,43 @@ const ModelList: React.FC<ModelListProps> = ({
                       <Tooltip title="Open in Slicer">
                         <IconButton
                           aria-label="open in slicer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          href={api.getSlicerUrl(model)}
+                          aria-haspopup="menu"
+                          onClick={(e) => openSlicerLauncher(e, model)}
                         >
                           <ScreenShareIcon />
                         </IconButton>
                       </Tooltip>
+                      <Menu
+                        anchorEl={slicerAnchorEl}
+                        open={
+                          Boolean(slicerAnchorEl) &&
+                          slicerModel?.id === model.id
+                        }
+                        onClose={(e) => {
+                          e.stopPropagation();
+                          closeSlicerMenu();
+                        }}
+                        anchorOrigin={{
+                          vertical: "top",
+                          horizontal: "left",
+                        }}
+                        transformOrigin={{
+                          vertical: "bottom",
+                          horizontal: "left",
+                        }}
+                      >
+                        {enabledSlicers.map((slicer) => (
+                          <MenuItem
+                            key={slicer}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openModelInSlicer(slicer);
+                            }}
+                          >
+                            {SLICERS[slicer].name}
+                          </MenuItem>
+                        ))}
+                      </Menu>
                       {model.manual && (
                         <Tooltip title="Manual">
                           <IconButton
