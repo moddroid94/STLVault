@@ -19,7 +19,7 @@ from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel
 
 
-from importers import printables
+from importers import makerworld, printables
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
@@ -77,10 +77,23 @@ def init_db():
         )
         """
     )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+        """
+    )
     try:
         cur.execute("ALTER TABLE models ADD COLUMN manual TEXT")
     except sqlite3.OperationalError:
         pass
+    if os.getenv("MAKERWORLD_BAMBU_TOKEN"):
+        cur.execute(
+            "INSERT OR IGNORE INTO settings(key,value) VALUES (?,?)",
+            ("makerworld_bambu_token", os.getenv("MAKERWORLD_BAMBU_TOKEN")),
+        )
     conn.commit()
 
     # seed folders if empty
@@ -135,6 +148,30 @@ def save_upload_file(upload_file: UploadFile, dest_path: str) -> int:
         shutil.copyfileobj(upload_file.file, buffer)
     size = os.path.getsize(dest_path)
     return size
+
+
+def get_setting(key: str) -> Optional[str]:
+    conn = get_db_conn()
+    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else None
+
+
+def set_setting(key: str, value: str):
+    conn = get_db_conn()
+    conn.execute(
+        "INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+    conn.commit()
+    conn.close()
+
+
+def clear_setting(key: str):
+    conn = get_db_conn()
+    conn.execute("DELETE FROM settings WHERE key=?", (key,))
+    conn.commit()
+    conn.close()
 
 
 # --- Folder endpoints ---
@@ -538,10 +575,42 @@ def storage_stats():
     return {"used": used, "total": total}
 
 
-## PRINTABLES IMPORTS
-@app.post("/api/printables/importid")
+def importer_for_url(url: str):
+    if "makerworld.com" in url.lower():
+        return makerworld.MakerWorldImporter(), "makerworld"
+    return printables.PrintablesImporter(), "printables"
+
+
+def importer_for_source(source: str):
+    if source == "makerworld":
+        return makerworld.MakerWorldImporter(get_setting("makerworld_bambu_token")), "MakerWorld"
+    return printables.PrintablesImporter(), "Printables"
+
+
+@app.get("/api/settings/makerworld-token")
+def makerworld_token_status():
+    return {"configured": bool(get_setting("makerworld_bambu_token"))}
+
+
+@app.put("/api/settings/makerworld-token")
+def update_makerworld_token(payload: dict):
+    if payload.get("clear") is True:
+        clear_setting("makerworld_bambu_token")
+        return {"configured": False}
+
+    token = str(payload.get("token", "")).strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
+    set_setting("makerworld_bambu_token", token)
+    return {"configured": True}
+
+
+## MODEL IMPORTS
+@app.post("/api/import/importid")
 def import_model_by_id(payload: dict):
-    importer = printables.PrintablesImporter()
+    source = payload.get("source", "printables")
+    importer, source_label = importer_for_source(source)
     modelId = payload.get("id")
     modelName = payload.get("name")
     parentId = payload.get("parentId")
@@ -569,7 +638,7 @@ def import_model_by_id(payload: dict):
         else:
             raise ValueError("URL is None")
     except Exception as e:
-        raise e
+        raise HTTPException(status_code=400, detail=str(e))
 
     model = {
         "id": mid,
@@ -579,7 +648,7 @@ def import_model_by_id(payload: dict):
         "size": size,
         "dateAdded": now_ms(),
         "tags": ["imported"],
-        "description": "Imported from Printables",
+        "description": f"Imported from {source_label}",
         "thumbnail": thumbnail
     }
 
@@ -604,21 +673,33 @@ def import_model_by_id(payload: dict):
     return model
 
 
-@app.post("/api/printables/options")
+@app.post("/api/import/options")
 def import_model_options(payload: dict):
-    importer = printables.PrintablesImporter()
     url = payload.get("url")
 
     # Check if url is not None before calling importer
     try:
         if url is not None:
+            importer, _source_label = importer_for_url(url)
             modelData = importer.getModelOptions(url)
             if modelData is not None:
                 return modelData
             raise ValueError("Collection Is Empty")
         raise ValueError("URL is None")
     except Exception as e:
-        raise e
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+## PRINTABLES IMPORTS - compatibility aliases
+@app.post("/api/printables/importid")
+def import_printables_model_by_id(payload: dict):
+    payload["source"] = "printables"
+    return import_model_by_id(payload)
+
+
+@app.post("/api/printables/options")
+def import_printables_model_options(payload: dict):
+    return import_model_options(payload)
 
 
 if __name__ == "__main__":

@@ -3,16 +3,23 @@ import {
   Check,
   ChevronLeft,
   EthernetPort,
-  SettingsIcon,
-  TicketIcon,
+  KeyRound,
   Wrench,
   X,
 } from "lucide-react";
-import { bool } from "three/tsl";
+import {
+  api,
+  ALL_SLICER_TYPES,
+  getEnabledLaunchSlicers,
+  setEnabledLaunchSlicers,
+  SLICERS,
+  SlicerType,
+} from "../services/api";
 
 interface SettingsProps {
   onBack: () => void;
 }
+
 
 type SlicerType = "orcaslicer" | "prusaslicer" | "bambu" | "cura" | "creality";
 
@@ -31,6 +38,15 @@ const SLICERS: Record<SlicerType, SlicerConfig> = {
 
 const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [apiPortStatus, setApiPortStatus] = useState(false);
+  const [makerWorldTokenConfigured, setMakerWorldTokenConfigured] =
+    useState(false);
+  const [makerWorldToken, setMakerWorldToken] = useState("");
+  const [makerWorldTokenStatus, setMakerWorldTokenStatus] = useState<
+    "idle" | "saved" | "cleared" | "error"
+  >("idle");
+  const [launchSlicers, setLaunchSlicers] = useState<SlicerType[]>(() =>
+    getEnabledLaunchSlicers(),
+  );
   // Initialize state directly from localStorage to prevent flash
   const [selectedSlicer, setSelectedSlicer] = useState<SlicerType>(() => {
     const saved = localStorage.getItem("stlvault-slicer");
@@ -48,8 +64,45 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
   // Save slicer preference to localStorage when changed
   const handleSlicerChange = (slicer: SlicerType) => {
-    setSelectedSlicer(slicer);
-    localStorage.setItem("stlvault-slicer", slicer);
+    const next = launchSlicers.includes(slicer)
+      ? launchSlicers.filter((item) => item !== slicer)
+      : [...launchSlicers, slicer];
+    const safeNext = next.length ? next : [slicer];
+    setLaunchSlicers(safeNext);
+    setSelectedSlicer(safeNext[0]);
+    setEnabledLaunchSlicers(safeNext);
+  };
+
+  useEffect(() => {
+    api
+      .getMakerWorldTokenStatus()
+      .then((status) => setMakerWorldTokenConfigured(status.configured))
+      .catch(() => setMakerWorldTokenStatus("error"));
+  }, []);
+
+  const handleMakerWorldTokenSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!makerWorldToken.trim()) return;
+
+    try {
+      const status = await api.updateMakerWorldToken(makerWorldToken.trim());
+      setMakerWorldTokenConfigured(status.configured);
+      setMakerWorldToken("");
+      setMakerWorldTokenStatus("saved");
+    } catch (error) {
+      setMakerWorldTokenStatus("error");
+    }
+  };
+
+  const handleMakerWorldTokenClear = async () => {
+    try {
+      const status = await api.clearMakerWorldToken();
+      setMakerWorldTokenConfigured(status.configured);
+      setMakerWorldToken("");
+      setMakerWorldTokenStatus("cleared");
+    } catch (error) {
+      setMakerWorldTokenStatus("error");
+    }
   };
 
   // Save API port preference to localStorage when changed
@@ -100,12 +153,12 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(Object.keys(SLICERS) as SlicerType[]).map((slicer) => (
+            {ALL_SLICER_TYPES.map((slicer) => (
               <button
                 key={slicer}
                 onClick={() => handleSlicerChange(slicer)}
                 className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedSlicer === slicer
+                  launchSlicers.includes(slicer)
                     ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20"
                     : "border-vault-700 bg-vault-800 hover:border-vault-600"
                 }`}
@@ -114,7 +167,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
                   <span className="font-medium text-white">
                     {SLICERS[slicer].name}
                   </span>
-                  {selectedSlicer === slicer && (
+                  {launchSlicers.includes(slicer) && (
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                   )}
                 </div>
@@ -132,6 +185,71 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               protocol links (e.g., {SLICERS[selectedSlicer].protocol}). The
               exact setup varies by slicer and operating system.
             </p>
+          </div>
+        </div>
+
+        {/* MakerWorld Settings */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <KeyRound className="w-5 h-5 text-blue-400" />
+            <h3 className="text-lg font-semibold text-white">MakerWorld</h3>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">
+            Add a Bambu Cloud token to enable MakerWorld 3MF downloads.
+          </p>
+          <form onSubmit={handleMakerWorldTokenSubmit}>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+              <input
+                type="password"
+                className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
+                placeholder={
+                  makerWorldTokenConfigured
+                    ? "Token configured; paste a new token to replace it"
+                    : "Paste MakerWorld token"
+                }
+                value={makerWorldToken}
+                onChange={(e) => {
+                  setMakerWorldToken(e.target.value);
+                  setMakerWorldTokenStatus("idle");
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!makerWorldToken.trim()}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span
+              className={`text-xs ${
+                makerWorldTokenConfigured ? "text-green-400" : "text-amber-400"
+              }`}
+            >
+              {makerWorldTokenConfigured
+                ? "Token configured"
+                : "Token not configured"}
+            </span>
+            {makerWorldTokenConfigured && (
+              <button
+                type="button"
+                onClick={handleMakerWorldTokenClear}
+                className="text-xs text-slate-400 hover:text-white underline"
+              >
+                Clear token
+              </button>
+            )}
+            {makerWorldTokenStatus === "saved" && (
+              <span className="text-xs text-green-400">Saved</span>
+            )}
+            {makerWorldTokenStatus === "cleared" && (
+              <span className="text-xs text-amber-400">Cleared</span>
+            )}
+            {makerWorldTokenStatus === "error" && (
+              <span className="text-xs text-red-400">Update failed</span>
+            )}
           </div>
         </div>
 

@@ -32,6 +32,7 @@ export interface STLModel {
 }
 
 export interface STLModelCollection {
+  source?: string;
   parentId: string;
   id: string;
   name: string;
