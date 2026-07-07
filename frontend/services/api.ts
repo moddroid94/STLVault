@@ -174,8 +174,24 @@ export const api = {
   //9b. GET slicer Weblink
   getSlicerUrl: (model: STLModel, slicer?: SlicerType) => {
     const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
-    const protocol = SLICERS[slicer || getSlicerPreference()].protocol;
-    return `${protocol}${encodeURIComponent(modelURL)}`;
+
+
+    // Get user's preferred slicer from localStorage
+    const slicerPreference =
+      localStorage.getItem("stlvault-slicer") || "orcaslicer";
+
+    const slicerProtocols: Record<string, string> = {
+      orcaslicer: "orcaslicer://open?file=",
+      prusaslicer: "prusaslicer://open?file=",
+      bambu: "bambustudio://open?file=",
+      cura: "cura://open?file=",
+      creality: "crealityprintlink://open?file=",
+    };
+
+    const protocol =
+      slicerProtocols[slicerPreference] || slicerProtocols["orcaslicer"];
+    return `${protocol}${modelURL}`;
+
   },
 
   // 10. BULK DELETE
