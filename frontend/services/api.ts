@@ -47,13 +47,13 @@ const getSlicerPreference = (): SlicerType => {
 export const getEnabledLaunchSlicers = (): SlicerType[] => {
   const saved = localStorage.getItem("stlvault-launch-slicers");
   if (!saved) return [getSlicerPreference()];
-
+  console.log(saved);
   try {
     const parsed = JSON.parse(saved);
     const enabled = Array.isArray(parsed)
       ? parsed.filter((slicer): slicer is SlicerType => slicer in SLICERS)
       : [];
-    return enabled.length ? enabled : [getSlicerPreference()];
+    return enabled.length > 0 ? enabled : [getSlicerPreference()];
   } catch {
     return [getSlicerPreference()];
   }
@@ -65,10 +65,7 @@ export const setEnabledLaunchSlicers = (slicers: SlicerType[]) => {
     "stlvault-launch-slicers",
     JSON.stringify(enabled.length ? enabled : [getSlicerPreference()]),
   );
-  localStorage.setItem(
-    "stlvault-slicer",
-    enabled[0] || getSlicerPreference(),
-  );
+  localStorage.setItem("stlvault-slicer", enabled[0] || getSlicerPreference());
 };
 
 export const api = {
@@ -175,23 +172,17 @@ export const api = {
   getSlicerUrl: (model: STLModel, slicer?: SlicerType) => {
     const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
 
-
     // Get user's preferred slicer from localStorage
-    const slicerPreference =
+    let slicerPreference =
       localStorage.getItem("stlvault-slicer") || "orcaslicer";
 
-    const slicerProtocols: Record<string, string> = {
-      orcaslicer: "orcaslicer://open?file=",
-      prusaslicer: "prusaslicer://open?file=",
-      bambu: "bambustudio://open?file=",
-      cura: "cura://open?file=",
-      creality: "crealityprintlink://open?file=",
-    };
+    if (slicer) {
+      slicerPreference = slicer;
+    }
 
     const protocol =
-      slicerProtocols[slicerPreference] || slicerProtocols["orcaslicer"];
-    return `${protocol}${modelURL}`;
-
+      SLICERS[slicerPreference as SlicerType] || SLICERS["orcaslicer"];
+    return `${protocol.protocol}${modelURL}`;
   },
 
   // 10. BULK DELETE

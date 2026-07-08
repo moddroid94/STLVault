@@ -22,8 +22,8 @@
 
 - **📖 Manuals:** Include markdown manuals for every model, with github style compatibility.
 - **📂 Nestable Folders:** Organize your models into a deep hierarchy that makes sense to you.
-- **🪄 Open in Slicer:** Let's you open the model direclty in your slicer.
-- **🔗 URL Import:** Import multiple files from Printables URL, with granular file selection. (Only models URL)
+- **🪄 Open in Slicers:** Let's you open the model direclty in your preferred slicers.
+- **🔗 URL Import:** Import multiple files from Printables or Makerworld, with granular file selection. (Only models URL)
 - **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
 - **👁️ 3D Preview:** Integrated web-based 3D viewer for STL, 3MF, STEP and STP files, with Trackball/Orbit controls switch to allow full rotational freedom (beta)
