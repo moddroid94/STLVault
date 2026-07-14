@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { STLModel } from "../types";
 import Viewer3D from "./Viewer3D";
 import {
@@ -19,7 +19,12 @@ import {
 } from "lucide-react";
 
 import { generateThumbnail } from "../services/thumbnailGenerator";
-import { api } from "../services/api";
+import {
+  api,
+  getEnabledLaunchSlicers,
+  SLICERS,
+  SlicerType,
+} from "../services/api";
 import { Typography } from "@mui/material";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
@@ -31,6 +36,8 @@ import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 
 interface DetailPanelProps {
   model: STLModel | null;
@@ -64,6 +71,13 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     message: string;
   }>({ show: false, message: "" });
 
+  const [slicerAnchorEl, setSlicerAnchorEl] = useState<null | HTMLElement>(
+    null,
+  );
+  const [enabledSlicers, setEnabledSlicers] = useState<SlicerType[]>(() =>
+    getEnabledLaunchSlicers(),
+  );
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +93,27 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
       setErrorState({ show: false, message: "" });
     }
   }, [model]);
+
+  useEffect(() => {
+    const refreshEnabledSlicers = () =>
+      setEnabledSlicers(getEnabledLaunchSlicers());
+    window.addEventListener("focus", refreshEnabledSlicers);
+    window.addEventListener("storage", refreshEnabledSlicers);
+    return () => {
+      window.removeEventListener("focus", refreshEnabledSlicers);
+      window.removeEventListener("storage", refreshEnabledSlicers);
+    };
+  }, []);
+
+  const openSlicerLauncher = (event: React.MouseEvent<HTMLElement>) => {
+    const launchSlicers = getEnabledLaunchSlicers();
+    setEnabledSlicers(launchSlicers);
+    if (launchSlicers.length === 1) {
+      window.location.href = api.getSlicerUrl(model!, launchSlicers[0]);
+      return;
+    }
+    setSlicerAnchorEl(event.currentTarget);
+  };
 
   const handleModelLoaded = useCallback(
     (dimensions: { x: number; y: number; z: number }) => {
@@ -167,9 +202,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     setTempThumb(dataurl);
   };
 
-  const handleManualUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleManualUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !model) return;
     try {
@@ -263,14 +296,31 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
 
           <Button
             fullWidth
-            href={api.getSlicerUrl(model)}
             variant="outlined"
             startIcon={<ScreenShareIcon />}
+            onClick={openSlicerLauncher}
           >
             <Typography noWrap variant="subtitle2">
               Open in Slicer
             </Typography>
           </Button>
+          <Menu
+            anchorEl={slicerAnchorEl}
+            open={Boolean(slicerAnchorEl)}
+            onClose={() => setSlicerAnchorEl(null)}
+          >
+            {enabledSlicers.map((slicer) => (
+              <MenuItem
+                key={slicer}
+                onClick={() => {
+                  window.location.href = api.getSlicerUrl(model, slicer);
+                  setSlicerAnchorEl(null);
+                }}
+              >
+                {SLICERS[slicer].name}
+              </MenuItem>
+            ))}
+          </Menu>
         </Stack>
 
         {/* Info Form */}

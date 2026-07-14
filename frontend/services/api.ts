@@ -11,6 +11,63 @@ if (localStorage.getItem("api-port-override")) {
 
 // --- API SERVICE ---
 
+export type SlicerType =
+  | "orcaslicer"
+  | "bambu"
+  | "elegoo"
+  | "flashforge"
+  | "prusaslicer"
+  | "cura";
+
+export interface SlicerConfig {
+  name: string;
+  protocol: string;
+}
+
+export interface IntegrationTokenStatus {
+  configured: boolean;
+}
+
+export const SLICERS: Record<SlicerType, SlicerConfig> = {
+  orcaslicer: { name: "OrcaSlicer", protocol: "orcaslicer://open?file=" },
+  bambu: { name: "Bambu Studio", protocol: "bambustudio://open?file=" },
+  elegoo: { name: "Elegoo Slicer", protocol: "elegooslicer://open?file=" },
+  flashforge: { name: "FlashPrint", protocol: "flashprint://open?file=" },
+  prusaslicer: { name: "PrusaSlicer", protocol: "prusaslicer://open?file=" },
+  cura: { name: "Cura", protocol: "cura://open?file=" },
+};
+
+export const ALL_SLICER_TYPES = Object.keys(SLICERS) as SlicerType[];
+
+const getSlicerPreference = (): SlicerType => {
+  const saved = localStorage.getItem("stlvault-slicer");
+  return saved && saved in SLICERS ? (saved as SlicerType) : "orcaslicer";
+};
+
+export const getEnabledLaunchSlicers = (): SlicerType[] => {
+  const saved = localStorage.getItem("stlvault-launch-slicers");
+  if (!saved) return [getSlicerPreference()];
+  console.log(saved);
+  try {
+    const parsed = JSON.parse(saved);
+    const enabled = Array.isArray(parsed)
+      ? parsed.filter((slicer): slicer is SlicerType => slicer in SLICERS)
+      : [];
+    return enabled.length > 0 ? enabled : [getSlicerPreference()];
+  } catch {
+    return [getSlicerPreference()];
+  }
+};
+
+export const setEnabledLaunchSlicers = (slicers: SlicerType[]) => {
+  const enabled = slicers.filter((slicer) => slicer in SLICERS);
+  localStorage.setItem(
+    "stlvault-launch-slicers",
+    JSON.stringify(enabled.length ? enabled : [getSlicerPreference()]),
+  );
+  localStorage.setItem("stlvault-slicer", enabled[0] || getSlicerPreference());
+};
+
 export const api = {
   // 1. GET Folders
   getFolders: async (): Promise<Folder[]> => {
@@ -112,23 +169,20 @@ export const api = {
   },
 
   //9b. GET slicer Weblink
-  getSlicerUrl: (model: STLModel) => {
+  getSlicerUrl: (model: STLModel, slicer?: SlicerType) => {
     const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
 
     // Get user's preferred slicer from localStorage
-    const slicerPreference =
+    let slicerPreference =
       localStorage.getItem("stlvault-slicer") || "orcaslicer";
 
-    const slicerProtocols: Record<string, string> = {
-      orcaslicer: "orcaslicer://open?file=",
-      prusaslicer: "prusaslicer://open?file=",
-      bambu: "bambustudio://open?file=",
-      cura: "cura://open?file=",
-    };
+    if (slicer) {
+      slicerPreference = slicer;
+    }
 
     const protocol =
-      slicerProtocols[slicerPreference] || slicerProtocols["orcaslicer"];
-    return `${protocol}${modelURL}`;
+      SLICERS[slicerPreference as SlicerType] || SLICERS["orcaslicer"];
+    return `${protocol.protocol}${modelURL}`;
   },
 
   // 10. BULK DELETE
@@ -165,7 +219,7 @@ export const api = {
 
   // 13. RETRIEVE MODEL OPTIONS
   retrieveModelOptions: async (url: string): Promise<STLModelCollection[]> => {
-    const res = await fetch(`${API_BASE_URL}/printables/options`, {
+    const res = await fetch(`${API_BASE_URL}/import/options`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
@@ -182,11 +236,13 @@ export const api = {
     previewPath: string,
     folderId: string,
     typeName: string,
+    source: string = "printables",
   ): Promise<STLModel> => {
-    const res = await fetch(`${API_BASE_URL}/printables/importid`, {
+    const res = await fetch(`${API_BASE_URL}/import/importid`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        source,
         id,
         name,
         parentId,
@@ -196,6 +252,34 @@ export const api = {
       }),
     });
     if (!res.ok) throw new Error("Import failed");
+    return res.json();
+  },
+
+  getMakerWorldTokenStatus: async (): Promise<IntegrationTokenStatus> => {
+    const res = await fetch(`${API_BASE_URL}/settings/makerworld-token`);
+    if (!res.ok) throw new Error("Failed to fetch MakerWorld token status");
+    return res.json();
+  },
+
+  updateMakerWorldToken: async (
+    token: string,
+  ): Promise<IntegrationTokenStatus> => {
+    const res = await fetch(`${API_BASE_URL}/settings/makerworld-token`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) throw new Error("Failed to update MakerWorld token");
+    return res.json();
+  },
+
+  clearMakerWorldToken: async (): Promise<IntegrationTokenStatus> => {
+    const res = await fetch(`${API_BASE_URL}/settings/makerworld-token`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clear: true }),
+    });
+    if (!res.ok) throw new Error("Failed to clear MakerWorld token");
     return res.json();
   },
 
