@@ -79,6 +79,18 @@ type SortOption =
   | "size-desc"
   | "size-asc";
 
+const VisuallyHiddenInput = styled("input")({
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  height: 1,
+  overflow: "hidden",
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  whiteSpace: "nowrap",
+  width: 1,
+});
+
 const ModelList: React.FC<ModelListProps> = ({
   models,
   folders,
@@ -115,18 +127,6 @@ const ModelList: React.FC<ModelListProps> = ({
   const [enabledSlicers, setEnabledSlicers] = useState<SlicerType[]>(() =>
     getEnabledLaunchSlicers(),
   );
-
-  const VisuallyHiddenInput = styled("input")({
-    clip: "rect(0 0 0 0)",
-    clipPath: "inset(50%)",
-    height: 1,
-    overflow: "hidden",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    whiteSpace: "nowrap",
-    width: 1,
-  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;

@@ -4,14 +4,17 @@ import time
 import shutil
 import sqlite3
 import base64
+import binascii
+import hashlib
 from fastapi import (
     FastAPI,
     UploadFile,
     File,
     Form,
     HTTPException,
+    Request,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from starlette.middleware.cors import CORSMiddleware
 import json
 from pathlib import Path
@@ -143,6 +146,27 @@ def row_to_model(row: sqlite3.Row) -> Dict[str, Any]:
     }
 
 
+def row_to_model_list_item(row: sqlite3.Row, request: Request) -> Dict[str, Any]:
+    model = row_to_model(row)
+    if row["thumbnailSignature"]:
+        version = hashlib.sha256(row["thumbnailSignature"].encode()).hexdigest()[:12]
+        url = request.url_for("get_model_thumbnail", model_id=model["id"])
+        model["thumbnail"] = f"{url}?v={version}"
+    return model
+
+
+def thumbnail_media_type(content: bytes) -> str:
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        return "image/webp"
+    raise HTTPException(status_code=415, detail="Unsupported thumbnail image")
+
+
 def save_upload_file(upload_file: UploadFile, dest_path: str) -> int:
     with open(dest_path, "wb") as buffer:
         shutil.copyfileobj(upload_file.file, buffer)
@@ -234,16 +258,25 @@ def delete_folder(folder_id: str):
 
 # --- Model endpoints ---
 @app.get("/api/models")
-def get_models(folderId: Optional[str] = None):
+def get_models(request: Request, folderId: Optional[str] = None):
     conn = get_db_conn()
     cur = conn.cursor()
+    columns = """
+        id, name, folderId, url, size, dateAdded, tags, description,
+        NULL AS thumbnail, manual,
+        CASE WHEN thumbnail IS NOT NULL AND thumbnail != '' THEN
+            length(CAST(thumbnail AS BLOB)) || ':' ||
+            hex(substr(CAST(thumbnail AS BLOB), 33, 16)) || ':' ||
+            hex(substr(CAST(thumbnail AS BLOB), -16))
+        END AS thumbnailSignature
+    """
     if folderId and folderId != "all":
-        cur.execute("SELECT * FROM models WHERE folderId=?", (folderId,))
+        cur.execute(f"SELECT {columns} FROM models WHERE folderId=?", (folderId,))
     else:
-        cur.execute("SELECT * FROM models")
+        cur.execute(f"SELECT {columns} FROM models")
     rows = cur.fetchall()
     conn.close()
-    return [row_to_model(r) for r in rows]
+    return [row_to_model_list_item(r, request) for r in rows]
 
 def get_model_info(modelId):
     conn = get_db_conn()
@@ -478,6 +511,35 @@ def replace_model_file(
     row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
     conn.close()
     return row_to_model(row)
+
+
+@app.get("/api/models/{model_id}/thumbnail", name="get_model_thumbnail")
+def get_model_thumbnail(model_id: str):
+    conn = get_db_conn()
+    row = conn.execute(
+        "SELECT thumbnail FROM models WHERE id=?", (model_id,)
+    ).fetchone()
+    conn.close()
+    if not row or not row["thumbnail"]:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    metadata, separator, payload = row["thumbnail"].partition(",")
+    if (
+        not separator
+        or not metadata.startswith("data:")
+        or not metadata.endswith(";base64")
+    ):
+        raise HTTPException(status_code=415, detail="Invalid thumbnail format")
+    try:
+        content = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=415, detail="Invalid thumbnail data")
+
+    return Response(
+        content=content,
+        media_type=thumbnail_media_type(content),
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 @app.put("/api/models/{model_id}/thumbnail")
