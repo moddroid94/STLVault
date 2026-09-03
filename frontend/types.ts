@@ -29,6 +29,15 @@ export interface STLModel {
   dimensions?: { x: number; y: number; z: number };
   thumbnail?: string;
   manual?: string | null;
+  groupId?: string | null;
+  groupName?: string | null;
+}
+
+export interface ModelGroup {
+  id: string;
+  name: string;
+  dateAdded: number;
+  modelIds: string[];
 }
 
 export interface STLModelCollection {
