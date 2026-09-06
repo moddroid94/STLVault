@@ -19,7 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 from importers import makerworld, printables
@@ -36,6 +36,19 @@ class FolderData(BaseModel):
     parentId: Union[str, None] = None
 
 
+class ModelGroupCreate(BaseModel):
+    name: str = Field(min_length=1)
+    modelIds: List[str] = Field(min_length=1)
+
+
+class ModelGroupUpdate(BaseModel):
+    name: str = Field(min_length=1)
+
+
+class ModelGroupMembers(BaseModel):
+    modelIds: List[str] = Field(min_length=1)
+
+
 app = FastAPI(title="STLVault API")
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +62,7 @@ app.add_middleware(
 def get_db_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -87,6 +101,29 @@ def init_db():
             value TEXT
         )
         """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS model_groups (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            dateAdded INTEGER NOT NULL
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS model_group_members (
+            modelId TEXT PRIMARY KEY,
+            groupId TEXT NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(modelId) REFERENCES models(id) ON DELETE CASCADE,
+            FOREIGN KEY(groupId) REFERENCES model_groups(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_model_group_members_group ON model_group_members(groupId, position)"
     )
     try:
         cur.execute("ALTER TABLE models ADD COLUMN manual TEXT")
@@ -143,7 +180,24 @@ def row_to_model(row: sqlite3.Row) -> Dict[str, Any]:
         "description": row["description"] or "",
         "thumbnail": row["thumbnail"],
         "manual": row["manual"] if "manual" in row.keys() else None,
+        "groupId": row["groupId"] if "groupId" in row.keys() else None,
+        "groupName": row["groupName"] if "groupName" in row.keys() else None,
     }
+
+
+def get_model_with_group(
+    conn: sqlite3.Connection, model_id: str
+) -> Optional[sqlite3.Row]:
+    return conn.execute(
+        """
+        SELECT m.*, mgm.groupId, mg.name AS groupName
+        FROM models m
+        LEFT JOIN model_group_members mgm ON mgm.modelId = m.id
+        LEFT JOIN model_groups mg ON mg.id = mgm.groupId
+        WHERE m.id=?
+        """,
+        (model_id,),
+    ).fetchone()
 
 
 def row_to_model_list_item(row: sqlite3.Row, request: Request) -> Dict[str, Any]:
@@ -196,6 +250,104 @@ def clear_setting(key: str):
     conn.execute("DELETE FROM settings WHERE key=?", (key,))
     conn.commit()
     conn.close()
+
+
+def row_to_model_group(row: sqlite3.Row, model_ids: List[str]) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "dateAdded": row["dateAdded"],
+        "modelIds": model_ids,
+    }
+
+
+def get_model_group(conn: sqlite3.Connection, group_id: str) -> Dict[str, Any]:
+    row = conn.execute(
+        "SELECT id, name, dateAdded FROM model_groups WHERE id=?", (group_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Model group not found")
+    members = conn.execute(
+        "SELECT modelId FROM model_group_members WHERE groupId=? ORDER BY position, rowid",
+        (group_id,),
+    ).fetchall()
+    return row_to_model_group(row, [member["modelId"] for member in members])
+
+
+def validate_model_ids(conn: sqlite3.Connection, model_ids: List[str]):
+    if not model_ids:
+        return
+    placeholders = ",".join("?" for _ in model_ids)
+    found = {
+        row["id"]
+        for row in conn.execute(
+            f"SELECT id FROM models WHERE id IN ({placeholders})", model_ids
+        ).fetchall()
+    }
+    missing = [model_id for model_id in model_ids if model_id not in found]
+    if missing:
+        raise HTTPException(
+            status_code=404, detail=f"Models not found: {', '.join(missing)}"
+        )
+
+
+def delete_group_if_empty(conn: sqlite3.Connection, group_id: Optional[str]):
+    if not group_id:
+        return
+    conn.execute(
+        """
+        DELETE FROM model_groups
+        WHERE id=?
+          AND NOT EXISTS (
+            SELECT 1 FROM model_group_members WHERE groupId=model_groups.id
+          )
+        """,
+        (group_id,),
+    )
+
+
+def add_group_members(
+    conn: sqlite3.Connection, group_id: str, model_ids: List[str]
+):
+    model_ids = list(dict.fromkeys(model_ids))
+    validate_model_ids(conn, model_ids)
+    if not model_ids:
+        return
+
+    placeholders = ",".join("?" for _ in model_ids)
+    assigned = conn.execute(
+        f"SELECT modelId, groupId FROM model_group_members WHERE modelId IN ({placeholders})",
+        model_ids,
+    ).fetchall()
+    conflicting = [
+        row["modelId"] for row in assigned if row["groupId"] != group_id
+    ]
+    if conflicting:
+        raise HTTPException(
+            status_code=409,
+            detail="One or more models already belong to another model group",
+        )
+
+    assigned_to_target = {
+        row["modelId"] for row in assigned if row["groupId"] == group_id
+    }
+    model_ids = [
+        model_id for model_id in model_ids if model_id not in assigned_to_target
+    ]
+    if not model_ids:
+        return
+
+    next_position = conn.execute(
+        "SELECT COALESCE(MAX(position), -1) + 1 FROM model_group_members WHERE groupId=?",
+        (group_id,),
+    ).fetchone()[0]
+    conn.executemany(
+        "INSERT INTO model_group_members(modelId, groupId, position) VALUES (?,?,?)",
+        [
+            (model_id, group_id, next_position + offset)
+            for offset, model_id in enumerate(model_ids)
+        ],
+    )
 
 
 # --- Folder endpoints ---
@@ -256,34 +408,144 @@ def delete_folder(folder_id: str):
     return {"ok": True}
 
 
+# --- Model group endpoints ---
+@app.get("/api/model-groups")
+def get_model_groups():
+    conn = get_db_conn()
+    rows = conn.execute(
+        "SELECT id, name, dateAdded FROM model_groups ORDER BY name COLLATE NOCASE"
+    ).fetchall()
+    groups = [get_model_group(conn, row["id"]) for row in rows]
+    conn.close()
+    return groups
+
+
+@app.post("/api/model-groups")
+def create_model_group(payload: ModelGroupCreate):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Group name is required")
+
+    model_ids = list(dict.fromkeys(payload.modelIds))
+    group_id = str(uuid.uuid4())
+    conn = get_db_conn()
+    try:
+        conn.execute(
+            "INSERT INTO model_groups(id, name, dateAdded) VALUES (?,?,?)",
+            (group_id, name, now_ms()),
+        )
+        add_group_members(conn, group_id, model_ids)
+        conn.commit()
+        return get_model_group(conn, group_id)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+@app.patch("/api/model-groups/{group_id}")
+def update_model_group(group_id: str, payload: ModelGroupUpdate):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Group name is required")
+
+    conn = get_db_conn()
+    try:
+        get_model_group(conn, group_id)
+        conn.execute("UPDATE model_groups SET name=? WHERE id=?", (name, group_id))
+        conn.commit()
+        return get_model_group(conn, group_id)
+    finally:
+        conn.close()
+
+
+@app.delete("/api/model-groups/{group_id}")
+def delete_model_group(group_id: str):
+    conn = get_db_conn()
+    try:
+        get_model_group(conn, group_id)
+        conn.execute("DELETE FROM model_groups WHERE id=?", (group_id,))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+
+@app.post("/api/model-groups/{group_id}/models")
+def add_models_to_group(group_id: str, payload: ModelGroupMembers):
+    model_ids = list(dict.fromkeys(payload.modelIds))
+    conn = get_db_conn()
+    try:
+        get_model_group(conn, group_id)
+        add_group_members(conn, group_id, model_ids)
+        conn.commit()
+        return get_model_group(conn, group_id)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+@app.delete("/api/model-groups/{group_id}/models/{model_id}")
+def remove_model_from_group(group_id: str, model_id: str):
+    conn = get_db_conn()
+    try:
+        get_model_group(conn, group_id)
+        cursor = conn.execute(
+            "DELETE FROM model_group_members WHERE groupId=? AND modelId=?",
+            (group_id, model_id),
+        )
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Model is not in this group")
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM model_group_members WHERE groupId=?", (group_id,)
+        ).fetchone()[0]
+        if remaining == 0:
+            delete_group_if_empty(conn, group_id)
+            conn.commit()
+            return {"ok": True, "groupDeleted": True}
+        conn.commit()
+        return get_model_group(conn, group_id)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 # --- Model endpoints ---
 @app.get("/api/models")
 def get_models(request: Request, folderId: Optional[str] = None):
     conn = get_db_conn()
     cur = conn.cursor()
     columns = """
-        id, name, folderId, url, size, dateAdded, tags, description,
-        NULL AS thumbnail, manual,
-        CASE WHEN thumbnail IS NOT NULL AND thumbnail != '' THEN
-            length(CAST(thumbnail AS BLOB)) || ':' ||
-            hex(substr(CAST(thumbnail AS BLOB), 33, 16)) || ':' ||
-            hex(substr(CAST(thumbnail AS BLOB), -16))
+        m.id, m.name, m.folderId, m.url, m.size, m.dateAdded, m.tags, m.description,
+        NULL AS thumbnail, m.manual, mgm.groupId, mg.name AS groupName,
+        CASE WHEN m.thumbnail IS NOT NULL AND m.thumbnail != '' THEN
+            length(CAST(m.thumbnail AS BLOB)) || ':' ||
+            hex(substr(CAST(m.thumbnail AS BLOB), 33, 16)) || ':' ||
+            hex(substr(CAST(m.thumbnail AS BLOB), -16))
         END AS thumbnailSignature
     """
+    source = """
+        models m
+        LEFT JOIN model_group_members mgm ON mgm.modelId = m.id
+        LEFT JOIN model_groups mg ON mg.id = mgm.groupId
+    """
     if folderId and folderId != "all":
-        cur.execute(f"SELECT {columns} FROM models WHERE folderId=?", (folderId,))
+        cur.execute(f"SELECT {columns} FROM {source} WHERE m.folderId=?", (folderId,))
     else:
-        cur.execute(f"SELECT {columns} FROM models")
+        cur.execute(f"SELECT {columns} FROM {source}")
     rows = cur.fetchall()
     conn.close()
     return [row_to_model_list_item(r, request) for r in rows]
 
 def get_model_info(modelId):
     conn = get_db_conn()
-    cur = conn.cursor()
-    m = None
     if modelId is not None:
-        m = cur.execute("SELECT * FROM models WHERE id=?", (modelId,)).fetchone()
+        m = get_model_with_group(conn, modelId)
     else:
         return None
     conn.close()
@@ -323,6 +585,8 @@ def upload_model(
         "tags": tag_list,
         "description": "",
         "thumbnail": thumbnail,
+        "groupId": None,
+        "groupName": None,
     }
 
     conn = get_db_conn()
@@ -372,7 +636,7 @@ def update_model(model_id: str, updates: dict):
         cur.execute(sql, (*values, model_id))
         conn.commit()
 
-    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    row = get_model_with_group(conn, model_id)
     conn.close()
     return row_to_model(row)
 
@@ -381,7 +645,7 @@ def update_model(model_id: str, updates: dict):
 def delete_model(model_id: str):
     conn = get_db_conn()
     cur = conn.cursor()
-    m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    m = get_model_with_group(conn, model_id)
     if not m:
         conn.close()
         raise HTTPException(status_code=404, detail="Model not found")
@@ -399,6 +663,7 @@ def delete_model(model_id: str):
         except Exception:
             pass
     cur.execute("DELETE FROM models WHERE id=?", (model_id,))
+    delete_group_if_empty(conn, m["groupId"])
     conn.commit()
     conn.close()
     return {"ok": True}
@@ -423,7 +688,13 @@ def bulk_delete(payload: dict):
     ids = payload.get("ids", [])
     conn = get_db_conn()
     cur = conn.cursor()
+    affected_group_ids = set()
     for mid in ids:
+        membership = cur.execute(
+            "SELECT groupId FROM model_group_members WHERE modelId=?", (mid,)
+        ).fetchone()
+        if membership:
+            affected_group_ids.add(membership["groupId"])
         # delete files
         for fname in os.listdir(UPLOAD_DIR):
             if fname.startswith(mid):
@@ -438,6 +709,8 @@ def bulk_delete(payload: dict):
             except Exception:
                 pass
         cur.execute("DELETE FROM models WHERE id=?", (mid,))
+    for group_id in affected_group_ids:
+        delete_group_if_empty(conn, group_id)
     conn.commit()
     conn.close()
     return {"ok": True}
@@ -508,7 +781,7 @@ def replace_model_file(
         (f"/api/models/{model_id}/download", size, thumbnail, model_id),
     )
     conn.commit()
-    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    row = get_model_with_group(conn, model_id)
     conn.close()
     return row_to_model(row)
 
@@ -569,7 +842,7 @@ def replace_model_thumbnail(
         (thumbnail, model_id),
     )
     conn.commit()
-    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    row = get_model_with_group(conn, model_id)
     conn.close()
     return row_to_model(row)
 
@@ -599,7 +872,7 @@ def upload_model_manual(model_id: str, file: UploadFile = File(...)):
         (file.filename, model_id),
     )
     conn.commit()
-    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    row = get_model_with_group(conn, model_id)
     conn.close()
     return row_to_model(row)
 
@@ -622,7 +895,7 @@ def delete_model_manual(model_id: str):
 
     cur.execute("UPDATE models SET manual=NULL WHERE id=?", (model_id,))
     conn.commit()
-    row = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
+    row = get_model_with_group(conn, model_id)
     conn.close()
     return row_to_model(row)
 

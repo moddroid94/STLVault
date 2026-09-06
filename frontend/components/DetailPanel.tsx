@@ -46,7 +46,7 @@ interface DetailPanelProps {
   onDelete: (id: string) => void;
   onOpenManual: (model: STLModel) => void;
   onEditManual: (model: STLModel) => void;
-  onUploadManual: (id: string, file: File) => void | Promise<void>;
+  onUploadManual: (id: string, file: File) => void | Promise<unknown>;
   onDeleteManual: (id: string) => void | Promise<void>;
 }
 

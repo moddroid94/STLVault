@@ -1,4 +1,10 @@
-import { Folder, STLModel, StorageStats, STLModelCollection } from "../types";
+import {
+  Folder,
+  ModelGroup,
+  STLModel,
+  StorageStats,
+  STLModelCollection,
+} from "../types";
 
 let API_BASE_URL = "";
 
@@ -115,6 +121,57 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/models${query}`);
     if (!res.ok) throw new Error("Failed to fetch models");
     return res.json();
+  },
+
+  getModelGroups: async (): Promise<ModelGroup[]> => {
+    const res = await fetch(`${API_BASE_URL}/model-groups`);
+    if (!res.ok) throw new Error("Failed to fetch model groups");
+    return res.json();
+  },
+
+  createModelGroup: async (
+    name: string,
+    modelIds: string[],
+  ): Promise<ModelGroup> => {
+    const res = await fetch(`${API_BASE_URL}/model-groups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, modelIds }),
+    });
+    if (!res.ok) throw new Error("Failed to create model group");
+    return res.json();
+  },
+
+  addModelsToGroup: async (
+    groupId: string,
+    modelIds: string[],
+  ): Promise<ModelGroup> => {
+    const res = await fetch(`${API_BASE_URL}/model-groups/${groupId}/models`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modelIds }),
+    });
+    if (!res.ok) throw new Error("Failed to add models to group");
+    return res.json();
+  },
+
+  removeModelFromGroup: async (
+    groupId: string,
+    modelId: string,
+  ): Promise<ModelGroup | { ok: true; groupDeleted: true }> => {
+    const res = await fetch(
+      `${API_BASE_URL}/model-groups/${groupId}/models/${modelId}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error("Failed to remove model from group");
+    return res.json();
+  },
+
+  deleteModelGroup: async (groupId: string): Promise<void> => {
+    const res = await fetch(`${API_BASE_URL}/model-groups/${groupId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete model group");
   },
 
   // 6. UPLOAD Model
