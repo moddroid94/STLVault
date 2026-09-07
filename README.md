@@ -22,6 +22,7 @@
 
 - **📖 Manuals:** Include markdown manuals for every model, with github style compatibility.
 - **📂 Nestable Folders:** Organize your models into a deep hierarchy that makes sense to you.
+- **🗃️ Print Groups:** Create Print Groups for same-project or different-size models.
 - **🪄 Open in Slicers:** Let's you open the model direclty in your preferred slicers.
 - **🔗 URL Import:** Import multiple files from Printables or Makerworld, with granular file selection. (Only models URL)
 - **🖱️ Drag n' Drop:** Seamlessly import new models or move files between folders.
@@ -46,6 +47,7 @@
 ## 📸 Screenshots
 
 ![Dashboard Preview](https://github.com/user-attachments/assets/33be62e6-d7fd-455b-9ef1-e1d363bff6f8)
+![Model Group](https://github.com/user-attachments/assets/c7cd672c-5c8b-4e5b-b211-447025c3bc0d)
 ![Model Viewer/Info Preview](https://github.com/user-attachments/assets/db0c4141-51f6-408d-a6c5-9b3df20a3fc7)![ModelViewer2](https://github.com/user-attachments/assets/dc470ef9-0cf3-4f08-b60d-3985d2461576)
 ![Setting Page](https://github.com/user-attachments/assets/23c703ce-73b0-43bb-9ff4-f4a64c5f7147)
 

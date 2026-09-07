@@ -5,8 +5,6 @@ import {
   Search,
   CheckSquare,
   MoreVertical,
-  ExternalLink,
-  Download,
   Globe,
   Folder as FolderIcon,
   DownloadIcon,
@@ -14,14 +12,17 @@ import {
   XCircle,
   ChevronLeft,
   BookOpen,
+  Boxes,
+  Unlink,
 } from "lucide-react";
-import { STLModel, Folder } from "../types";
+import { STLModel, Folder, ModelGroup } from "../types";
 import {
   api,
   getEnabledLaunchSlicers,
   SLICERS,
   SlicerType,
 } from "../services/api";
+import { buildVisibleGroups } from "../services/modelGroupView";
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -46,9 +47,18 @@ import InputAdornment from "@mui/material/InputAdornment";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
 import InputLabel from "@mui/material/InputLabel";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 
 interface ModelListProps {
   models: STLModel[];
+  allModels: STLModel[];
+  modelGroups: ModelGroup[];
   folders: Folder[];
   currentFolderName: string;
   onBackNavigation: () => void;
@@ -62,13 +72,16 @@ interface ModelListProps {
   // Selection Props
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
-  onSelectAll: (filtered) => void;
+  onToggleGroupSelection: (ids: string[], selected: boolean) => void;
+  onSelectAll: (filtered: STLModel[]) => void;
   onClearSelection: () => void;
 
   // Folder Interaction Props
   onNavigateFolder: (id: string) => void;
   onMoveToFolder: (folderId: string, modelIds: string[]) => void;
   onUploadToFolder: (folderId: string, files: FileList) => void;
+  onDeleteModelGroup: (groupId: string) => void;
+  onRemoveModelFromGroup: (groupId: string, modelId: string) => void;
 }
 
 type SortOption =
@@ -78,6 +91,8 @@ type SortOption =
   | "name-desc"
   | "size-desc"
   | "size-asc";
+
+type ModelView = "all" | "groups" | "ungrouped";
 
 const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -93,6 +108,8 @@ const VisuallyHiddenInput = styled("input")({
 
 const ModelList: React.FC<ModelListProps> = ({
   models,
+  allModels,
+  modelGroups,
   folders,
   currentFolderName,
   onBackNavigation,
@@ -104,21 +121,27 @@ const ModelList: React.FC<ModelListProps> = ({
   selectedModelId,
   selectedIds,
   onToggleSelection,
+  onToggleGroupSelection,
   onSelectAll,
   onClearSelection,
   onNavigateFolder,
   onMoveToFolder,
   onUploadToFolder,
+  onDeleteModelGroup,
+  onRemoveModelFromGroup,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("date-desc");
+  const [modelView, setModelView] = useState<ModelView>("all");
   const [activeMenuModelId, setActiveMenuModelId] = useState<string | null>(
     null,
   );
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [groupToDissolve, setGroupToDissolve] =
+    useState<ModelGroup | null>(null);
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [slicerAnchorEl, setSlicerAnchorEl] =
@@ -155,7 +178,8 @@ const ModelList: React.FC<ModelListProps> = ({
       result = result.filter(
         (m) =>
           m.name.toLowerCase().includes(query) ||
-          m.tags.some((t) => t.toLowerCase().includes(query)),
+          m.tags.some((t) => t.toLowerCase().includes(query)) ||
+          (m.groupName || "").toLowerCase().includes(query),
       );
     }
 
@@ -192,6 +216,39 @@ const ModelList: React.FC<ModelListProps> = ({
     result.sort((a, b) => a.name.localeCompare(b.name));
     return result;
   }, [folders, searchQuery]);
+
+  const visibleGroups = useMemo(
+    () =>
+      buildVisibleGroups(
+        modelGroups,
+        processedModels,
+        allModels,
+        modelView === "groups",
+      ),
+    [allModels, modelGroups, modelView, processedModels],
+  );
+
+  const ungroupedModels = useMemo(
+    () => processedModels.filter((model) => !model.groupId),
+    [processedModels],
+  );
+
+  const displayedModels = useMemo(() => {
+    if (modelView === "groups") {
+      return visibleGroups.flatMap((group) => group.models);
+    }
+    if (modelView === "ungrouped") {
+      return ungroupedModels;
+    }
+    return [
+      ...visibleGroups.flatMap((group) => group.models),
+      ...ungroupedModels,
+    ];
+  }, [modelView, processedModels, ungroupedModels, visibleGroups]);
+
+  const allDisplayedSelected =
+    displayedModels.length > 0 &&
+    displayedModels.every((model) => selectedIds.has(model.id));
 
   const openSlicerLauncher = (
     event: React.MouseEvent<HTMLElement>,
@@ -301,6 +358,204 @@ const ModelList: React.FC<ModelListProps> = ({
 
   const selectionMode = selectedIds.size > 0;
 
+  const renderModelCard = (model: STLModel, groupId?: string) => {
+    const isSelected = selectedIds.has(model.id);
+    const isMenuOpen = activeMenuModelId === model.id;
+
+    return (
+      <div
+        key={model.id}
+        draggable={true}
+        onDragStart={(e) => handleCardDragStart(e, model.id)}
+        onClick={() => {
+          if (selectionMode) {
+            onToggleSelection(model.id);
+          } else {
+            onSelectModel(model);
+          }
+        }}
+        className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing"
+      >
+        <Card raised={isSelected}>
+          <CardActionArea>
+            {model.thumbnail ? (
+              <CardMedia
+                component="div"
+                className="h-60 object-cover"
+                image={model.thumbnail}
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
+                <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
+              </>
+            )}
+            <div className="absolute bottom-[5.2rem] left-2 flex gap-1 max-w-[80%]">
+              {model.tags.slice(0, 2).map((tag) => (
+                <Chip
+                  sx={{ borderRadius: 1 }}
+                  label={tag}
+                  key={tag}
+                  color="primary"
+                  size="small"
+                />
+              ))}
+              {model.tags.length > 2 && (
+                <Chip
+                  sx={{ borderRadius: 1 }}
+                  label={`+${model.tags.length - 2}`}
+                  color="secondary"
+                  size="small"
+                />
+              )}
+            </div>
+            <div className="absolute top-2 right-2">
+              <Chip
+                sx={{ borderRadius: 1, fontWeight: "medium" }}
+                label={model.name.split(".").pop().toUpperCase()}
+                color="info"
+                size="small"
+              />
+            </div>
+            <CardContent>
+              <Typography gutterBottom variant="body1" noWrap={true}>
+                {model.name}
+              </Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                {(model.size / (1024 * 1024)).toFixed(2)}
+                {" MB  • "}
+                {new Date(model.dateAdded).toLocaleDateString()}
+              </Typography>
+            </CardContent>
+          </CardActionArea>
+          <CardActions>
+            <Tooltip title="Download">
+              <IconButton
+                aria-label="download"
+                onClick={(e) => e.stopPropagation()}
+                href={api.getDownloadUrl(model)}
+              >
+                <DownloadIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Open in Slicer">
+              <IconButton
+                aria-label="open in slicer"
+                aria-haspopup="menu"
+                onClick={(e) => openSlicerLauncher(e, model)}
+              >
+                <ScreenShareIcon />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={slicerAnchorEl}
+              open={Boolean(slicerAnchorEl) && slicerModel?.id === model.id}
+              onClose={closeSlicerMenu}
+              anchorOrigin={{ vertical: "top", horizontal: "left" }}
+              transformOrigin={{ vertical: "bottom", horizontal: "left" }}
+            >
+              {enabledSlicers.map((slicer) => (
+                <MenuItem
+                  key={slicer}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openModelInSlicer(slicer);
+                  }}
+                >
+                  {SLICERS[slicer].name}
+                </MenuItem>
+              ))}
+            </Menu>
+            {model.manual && (
+              <Tooltip title="Manual">
+                <IconButton
+                  aria-label="open manual"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenManual(model);
+                  }}
+                >
+                  <BookOpen />
+                </IconButton>
+              </Tooltip>
+            )}
+            <div className="absolute right-2">
+              <IconButton
+                id={`fade-button-${model.id}`}
+                aria-controls={isMenuOpen ? `fade-menu-${model.id}` : undefined}
+                aria-haspopup="true"
+                aria-expanded={isMenuOpen ? "true" : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAnchorEl(e.currentTarget);
+                  setActiveMenuModelId(isMenuOpen ? null : model.id);
+                }}
+              >
+                <MoreVertical />
+              </IconButton>
+              <Menu
+                id={`fade-menu-${model.id}`}
+                anchorEl={anchorEl}
+                open={isMenuOpen}
+                onClose={() => setActiveMenuModelId(null)}
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    onSelectModel(model);
+                    setActiveMenuModelId(null);
+                  }}
+                >
+                  Open
+                </MenuItem>
+                {groupId && (
+                  <MenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveModelFromGroup(groupId, model.id);
+                      setActiveMenuModelId(null);
+                    }}
+                  >
+                    Remove from group
+                  </MenuItem>
+                )}
+                <Divider />
+                <MenuItem
+                  sx={{ color: "#dd3434ff" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(model.id);
+                    setActiveMenuModelId(null);
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              </Menu>
+            </div>
+          </CardActions>
+        </Card>
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelection(model.id);
+          }}
+          className={`absolute top-2 left-2 z-10 rounded backdrop-blur-sm transition-opacity duration-200 ${
+            isSelected || selectionMode
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <Checkbox
+            checked={isSelected}
+            onChange={null}
+            slotProps={{ input: { "aria-label": "controlled" } }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 p-2 sm:p-4 h-full overflow-y-auto relative flex flex-col">
       {/* Header Section */}
@@ -318,10 +573,10 @@ const ModelList: React.FC<ModelListProps> = ({
               <Typography variant="body1" sx={{ color: "text.secondary" }}>
                 {processedFolders.length}{" "}
                 {processedFolders.length === 1 ? "folder • " : "folders • "}
-                {processedModels.length}{" "}
-                {processedModels.length === 1 ? "model" : "models"}
-                {models.length !== processedModels.length &&
-                  ` ( filtered from: ${models.length} )`}
+                {displayedModels.length}{" "}
+                {displayedModels.length === 1 ? "model" : "models"}
+                {allModels.length !== displayedModels.length &&
+                  ` ( filtered from: ${allModels.length} )`}
               </Typography>
             </Stack>
           </div>
@@ -331,13 +586,9 @@ const ModelList: React.FC<ModelListProps> = ({
               <Button
                 variant="outlined"
                 startIcon={<CheckSquare />}
-                onClick={() => onSelectAll(processedModels)}
+                onClick={() => onSelectAll(displayedModels)}
               >
-                {`${
-                  models.length === selectedIds.size
-                    ? "Unselect All"
-                    : "Select All"
-                } `}
+                {allDisplayedSelected ? "Unselect All" : "Select All"}
               </Button>
               <Button
                 variant="contained"
@@ -391,7 +642,10 @@ const ModelList: React.FC<ModelListProps> = ({
                         }
                         onClick={() => {
                           setSearchQuery("");
-                          document.getElementById("search-input").value = "";
+                          const input = document.getElementById(
+                            "search-input",
+                          ) as HTMLInputElement | null;
+                          if (input) input.value = "";
                         }}
                       >
                         <XCircle />
@@ -423,6 +677,29 @@ const ModelList: React.FC<ModelListProps> = ({
               </Select>
             </FormControl>
           </div>
+
+          <ToggleButtonGroup
+            value={modelView}
+            exclusive
+            onChange={(_event, value: ModelView | null) => {
+              if (value) setModelView(value);
+            }}
+            size="small"
+            aria-label="Model view"
+            className="min-w-full sm:min-w-[300px]"
+          >
+            <ToggleButton value="all" aria-label="All models and groups">
+              All
+            </ToggleButton>
+            <ToggleButton value="groups" aria-label="Groups only">
+              <Boxes className="mr-2 h-4 w-4" />
+              Groups
+            </ToggleButton>
+            <ToggleButton value="ungrouped" aria-label="Ungrouped models only">
+              <FileBox className="mr-2 h-4 w-4" />
+              Ungrouped
+            </ToggleButton>
+          </ToggleButtonGroup>
         </div>
       </div>
 
@@ -558,6 +835,77 @@ const ModelList: React.FC<ModelListProps> = ({
             ))}
           </div>
 
+          {/* Print Groups */}
+          {modelView !== "ungrouped" && visibleGroups.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pb-5">
+              {visibleGroups.map((group) => {
+                const allSelected =
+                  group.models.length > 0 &&
+                  group.models.every((model) => selectedIds.has(model.id));
+                return (
+                  <Card key={group.id} variant="outlined">
+                    <CardContent>
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        sx={{ alignItems: "center", mb: 2 }}
+                      >
+                        <Avatar sx={{ bgcolor: "primary.dark" }}>
+                          <Boxes />
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <Typography variant="h6" noWrap>
+                            {group.name}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: "text.secondary" }}
+                          >
+                            Print group • {group.models.length}{" "}
+                            {group.models.length === 1 ? "part" : "parts"}
+                          </Typography>
+                        </div>
+                        <Tooltip
+                          title={allSelected ? "Unselect group" : "Select group"}
+                        >
+                          <Checkbox
+                            checked={allSelected}
+                            disabled={group.models.length === 0}
+                            onChange={() =>
+                              onToggleGroupSelection(
+                                group.models.map((model) => model.id),
+                                !allSelected,
+                              )
+                            }
+                            slotProps={{
+                              input: {
+                                "aria-label": `Select print group ${group.name}`,
+                              },
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Ungroup (keep models)">
+                          <IconButton
+                            aria-label={`Ungroup print group ${group.name}`}
+                            onClick={() => setGroupToDissolve(group)}
+                          >
+                            <Unlink />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {group.models.map((model) =>
+                          renderModelCard(model, group.id),
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
           {/* Files */}
           <div
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 pb-24"
@@ -582,233 +930,52 @@ const ModelList: React.FC<ModelListProps> = ({
             )}
 
             {/* Render Models */}
-            {processedModels.map((model) => {
-              const isSelected = selectedIds.has(model.id);
-              const isMenuOpen = activeMenuModelId === model.id;
-
-              return (
-                <div
-                  key={model.id}
-                  draggable={true}
-                  onDragStart={(e) => handleCardDragStart(e, model.id)}
-                  onClick={() => {
-                    if (selectionMode) {
-                      onToggleSelection(model.id);
-                    } else {
-                      onSelectModel(model);
-                    }
-                  }}
-                  className={`group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 relative active:cursor-grabbing`}
-                >
-                  <Card raised={isSelected}>
-                    <CardActionArea>
-                      {model.thumbnail ? (
-                        <CardMedia
-                          component="div"
-                          className="h-60 object-cover"
-                          image={model.thumbnail}
-                        />
-                      ) : (
-                        <>
-                          <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
-                          <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
-                        </>
-                      )}
-                      <div className="absolute bottom-[5.2rem] left-2 flex gap-1 max-w-[80%]">
-                        {model.tags.slice(0, 2).map((tag) => (
-                          <Chip
-                            sx={{
-                              borderRadius: 1,
-                            }}
-                            label={tag}
-                            key={tag}
-                            color="primary"
-                            size="small"
-                          />
-                        ))}
-                        {model.tags.length > 2 && (
-                          <Chip
-                            sx={{
-                              borderRadius: 1,
-                            }}
-                            label={`+${model.tags.length - 2}`}
-                            color="secondary"
-                            size="small"
-                          />
-                        )}
-                      </div>
-                      <div className="absolute top-2 right-2">
-                        <Chip
-                          sx={{
-                            borderRadius: 1,
-                            fontWeight: "medium",
-                          }}
-                          label={model.name.split(".").pop().toUpperCase()}
-                          color="info"
-                          size="small"
-                        />
-                      </div>
-                      <CardContent>
-                        <Typography gutterBottom variant="body1" noWrap={true}>
-                          {model.name}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "text.secondary" }}
-                        >
-                          {(model.size / (1024 * 1024)).toFixed(2)}
-                          {" MB  • "}
-                          {new Date(model.dateAdded).toLocaleDateString()}
-                        </Typography>
-                      </CardContent>
-                    </CardActionArea>
-                    <CardActions>
-                      <Tooltip title="Download">
-                        <IconButton
-                          aria-label="download"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          href={api.getDownloadUrl(model)}
-                        >
-                          <DownloadIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Open in Slicer">
-                        <IconButton
-                          aria-label="open in slicer"
-                          aria-haspopup="menu"
-                          onClick={(e) => openSlicerLauncher(e, model)}
-                        >
-                          <ScreenShareIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Menu
-                        anchorEl={slicerAnchorEl}
-                        open={
-                          Boolean(slicerAnchorEl) &&
-                          slicerModel?.id === model.id
-                        }
-                        onClose={(e) => {
-                          e.stopPropagation();
-                          closeSlicerMenu();
-                        }}
-                        anchorOrigin={{
-                          vertical: "top",
-                          horizontal: "left",
-                        }}
-                        transformOrigin={{
-                          vertical: "bottom",
-                          horizontal: "left",
-                        }}
-                      >
-                        {enabledSlicers.map((slicer) => (
-                          <MenuItem
-                            key={slicer}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openModelInSlicer(slicer);
-                            }}
-                          >
-                            {SLICERS[slicer].name}
-                          </MenuItem>
-                        ))}
-                      </Menu>
-                      {model.manual && (
-                        <Tooltip title="Manual">
-                          <IconButton
-                            aria-label="open manual"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenManual(model);
-                            }}
-                          >
-                            <BookOpen />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <div className="absolute right-2">
-                        <IconButton
-                          id={`fade-button-${model.id}`}
-                          aria-controls={
-                            isMenuOpen ? `fade-menu-${model.id}` : undefined
-                          }
-                          aria-haspopup="true"
-                          aria-expanded={isMenuOpen ? "true" : undefined}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setAnchorEl(e.currentTarget);
-                            setActiveMenuModelId(isMenuOpen ? null : model.id);
-                          }}
-                        >
-                          <MoreVertical />
-                        </IconButton>
-                        <Menu
-                          id={`fade-menu-${model.id}`}
-                          anchorEl={anchorEl}
-                          open={isMenuOpen}
-                          onClose={(e) => {
-                            e.stopPropagation();
-                            setActiveMenuModelId(null);
-                          }}
-                          anchorOrigin={{
-                            vertical: "top",
-                            horizontal: "right",
-                          }}
-                          transformOrigin={{
-                            vertical: "top",
-                            horizontal: "right",
-                          }}
-                        >
-                          <MenuItem
-                            onClick={(e) => {
-                              onSelectModel(model);
-                              setActiveMenuModelId(null);
-                            }}
-                          >
-                            Open
-                          </MenuItem>
-                          <Divider />
-                          <MenuItem
-                            sx={{ color: "#dd3434ff" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Call delete FIRST to ensure propagation isn't cut off by component unmounting if list updates
-                              onDelete(model.id);
-                              setActiveMenuModelId(null);
-                            }}
-                          >
-                            Delete
-                          </MenuItem>
-                        </Menu>
-                      </div>
-                    </CardActions>
-                  </Card>
-                  {/* Selection Checkbox */}
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelection(model.id);
-                    }}
-                    className={`absolute top-2 left-2 z-10 rounded backdrop-blur-sm transition-opacity duration-200
-                    ${
-                      isSelected || selectionMode
-                        ? "opacity-100"
-                        : "opacity-0 group-hover:opacity-100"
-                    }`}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={null}
-                      slotProps={{
-                        input: { "aria-label": "controlled" },
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            {modelView !== "groups" &&
+              ungroupedModels.map((model) => renderModelCard(model))}
           </div>
+
+          {modelView === "groups" && visibleGroups.length === 0 && (
+            <div className="pb-24 text-center text-slate-500">
+              No print groups in this view
+            </div>
+          )}
+
+          {modelView === "ungrouped" && ungroupedModels.length === 0 && (
+            <div className="pb-24 text-center text-slate-500">
+              No ungrouped models in this view
+            </div>
+          )}
+
+          <Dialog
+            open={Boolean(groupToDissolve)}
+            onClose={() => setGroupToDissolve(null)}
+            aria-labelledby="ungroup-dialog-title"
+          >
+            <DialogTitle id="ungroup-dialog-title">
+              Ungroup {groupToDissolve?.name}?
+            </DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                The models will stay in your library, but they will no longer
+                be grouped together.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setGroupToDissolve(null)}>Cancel</Button>
+              <Button
+                color="warning"
+                variant="contained"
+                onClick={() => {
+                  if (groupToDissolve) {
+                    onDeleteModelGroup(groupToDissolve.id);
+                  }
+                  setGroupToDissolve(null);
+                }}
+              >
+                Ungroup
+              </Button>
+            </DialogActions>
+          </Dialog>
         </div>
       )}
     </div>
