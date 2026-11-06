@@ -1,0 +1,18 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "backend for STLVault"
+readme = "README.md"
+authors = [
+    { name = "moddroid94", email = "samuel.brizzi94@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "fastapi>=0.162.0",
+    "pydantic==2.14.3",
+    "python-multipart>=0.0.33",
+    "requests>=2.34.2",
+    "starlette>=1.10.0",
+    "uvicorn[standard]>=0.54.0",
+]

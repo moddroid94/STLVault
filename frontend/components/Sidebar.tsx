@@ -1,40 +1,34 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  Folder as FolderIcon,
-  Plus,
   Box,
   LayoutGrid,
-  Pencil,
-  Trash2,
-  Check,
-  X,
-  ChevronRight,
-  Settings,
+  Plus,
   PlusIcon,
+  Settings,
+  Trash2
 } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Folder, STLModel, StorageStats } from "../types";
 
-import Stack from "@mui/material/Stack";
+import Badge from "@mui/material/Badge";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
+import OutlinedInput from "@mui/material/OutlinedInput";
+import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { TreeViewDefaultItemModelProperties } from "@mui/x-tree-view/models";
 import { useTreeItemUtils } from "@mui/x-tree-view/hooks";
-import {
-  UseTreeItemContentSlotOwnProps,
-  UseTreeItemLabelSlotOwnProps,
-  UseTreeItemStatus,
-} from "@mui/x-tree-view/useTreeItem";
+import { TreeViewDefaultItemModelProperties } from "@mui/x-tree-view/models";
 import { RichTreeView } from "@mui/x-tree-view/RichTreeView";
-import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
 import {
   TreeItem,
   TreeItemProps,
   TreeItemSlotProps,
 } from "@mui/x-tree-view/TreeItem";
-import Container from "@mui/material/Container";
-import Button from "@mui/material/Button";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import Badge from "@mui/material/Badge";
+import {
+  UseTreeItemContentSlotOwnProps,
+  UseTreeItemLabelSlotOwnProps,
+  UseTreeItemStatus,
+} from "@mui/x-tree-view/useTreeItem";
 
 const APP_TAG = import.meta.env.VITE_APP_TAG || "dev";
 
@@ -245,29 +239,34 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   //builds the treeview structure
   const treefolders = () => {
-    const treeitems: TreeViewDefaultItemModelProperties[] = [];
-    rootFolders.map((folder) => {
-      treeitems.push({
-        id: folder.id,
-        label: folder.name,
-        children: [],
-      });
-    });
-    treeitems.map((folder) => {
-      folders.map((subfolder) => {
-        if (subfolder.parentId === folder.id) {
-          folder.children.push({ id: subfolder.id, label: subfolder.name });
-        }
-      });
-      folder.children.sort((a, b) => {
-        return a.label.localeCompare(b.label);
-      });
-    });
-    treeitems.sort((a, b) => {
-      return a.label.localeCompare(b.label);
-    });
-    return treeitems;
+    const map = new Map();
+    const roots: TreeViewDefaultItemModelProperties[] = [];
+
+    // 1. Create node objects, indexed by id
+    for (const item of folders) {
+      map.set(item.id, { id: item.id, label: item.name, parentId: item.parentId, children: [] });
+    }
+
+    // 2. Attach each node to its parent
+    for (const item of folders) {
+      const node = map.get(item.id);
+      if (item.parentId && map.has(item.parentId)) {
+        map.get(item.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+
+    // Sort each level
+    const sort = (nodes) => {
+      nodes.sort((a, b) => a.label.localeCompare(b.label));
+      nodes.forEach(n => n.children?.length && sort(n.children));
+    };
+
+    sort(roots);
+    return roots;
   };
+ 
 
   interface CustomLabelProps extends UseTreeItemLabelSlotOwnProps {
     status: UseTreeItemStatus;
