@@ -358,7 +358,11 @@ const ModelList: React.FC<ModelListProps> = ({
 
   const selectionMode = selectedIds.size > 0;
 
-  const renderModelCard = (model: STLModel, groupId?: string) => {
+  const renderModelCard = (
+    model: STLModel,
+    groupId?: string,
+    compact = false,
+  ) => {
     const isSelected = selectedIds.has(model.id);
     const isMenuOpen = activeMenuModelId === model.id;
 
@@ -381,16 +385,24 @@ const ModelList: React.FC<ModelListProps> = ({
             {model.thumbnail ? (
               <CardMedia
                 component="div"
-                className="h-60 object-cover"
+                className={compact ? "h-28 object-cover" : "h-60 object-cover"}
                 image={model.thumbnail}
               />
             ) : (
               <>
                 <div className="absolute inset-0 opacity-30 group-hover:opacity-50 transition-opacity bg-gradient-to-tr from-blue-900/40 to-transparent" />
-                <FileBox className="w-12 h-12 text-slate-600 group-hover:text-blue-400 transition-colors" />
+                <FileBox
+                  className={`${
+                    compact ? "w-8 h-8" : "w-12 h-12"
+                  } text-slate-600 group-hover:text-blue-400 transition-colors`}
+                />
               </>
             )}
-            <div className="absolute bottom-[5.2rem] left-2 flex gap-1 max-w-[80%]">
+            <div
+              className={`absolute ${
+                compact ? "bottom-[3.5rem]" : "bottom-[5.2rem]"
+              } left-2 flex gap-1 max-w-[80%]`}
+            >
               {model.tags.slice(0, 2).map((tag) => (
                 <Chip
                   sx={{ borderRadius: 1 }}
@@ -409,42 +421,59 @@ const ModelList: React.FC<ModelListProps> = ({
                 />
               )}
             </div>
-            <div className="absolute top-2 right-2">
+            <div className={compact ? "absolute top-1 right-1" : "absolute top-2 right-2"}>
               <Chip
-                sx={{ borderRadius: 1, fontWeight: "medium" }}
+                sx={{
+                  borderRadius: 1,
+                  fontWeight: "medium",
+                  ...(compact && { fontSize: "0.65rem", height: 20 }),
+                }}
                 label={model.name.split(".").pop().toUpperCase()}
                 color="info"
                 size="small"
               />
             </div>
-            <CardContent>
-              <Typography gutterBottom variant="body1" noWrap={true}>
+            <CardContent
+              sx={compact ? { p: 1, "&:last-child": { pb: 1 } } : undefined}
+            >
+              <Typography
+                gutterBottom={!compact}
+                variant={compact ? "body2" : "body1"}
+                noWrap={true}
+              >
                 {model.name}
               </Typography>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              <Typography
+                variant={compact ? "caption" : "body2"}
+                sx={{ color: "text.secondary" }}
+              >
                 {(model.size / (1024 * 1024)).toFixed(2)}
                 {" MB  • "}
                 {new Date(model.dateAdded).toLocaleDateString()}
               </Typography>
             </CardContent>
           </CardActionArea>
-          <CardActions>
+          <CardActions sx={compact ? { p: 0.5, pt: 0 } : undefined}>
             <Tooltip title="Download">
               <IconButton
+                size={compact ? "small" : "medium"}
                 aria-label="download"
                 onClick={(e) => e.stopPropagation()}
                 href={api.getDownloadUrl(model)}
               >
-                <DownloadIcon />
+                <DownloadIcon className={compact ? "h-4 w-4" : undefined} />
               </IconButton>
             </Tooltip>
             <Tooltip title="Open in Slicer">
               <IconButton
+                size={compact ? "small" : "medium"}
                 aria-label="open in slicer"
                 aria-haspopup="menu"
                 onClick={(e) => openSlicerLauncher(e, model)}
               >
-                <ScreenShareIcon />
+                <ScreenShareIcon
+                  className={compact ? "h-4 w-4" : undefined}
+                />
               </IconButton>
             </Tooltip>
             <Menu
@@ -469,18 +498,20 @@ const ModelList: React.FC<ModelListProps> = ({
             {model.manual && (
               <Tooltip title="Manual">
                 <IconButton
+                  size={compact ? "small" : "medium"}
                   aria-label="open manual"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenManual(model);
                   }}
                 >
-                  <BookOpen />
+                  <BookOpen className={compact ? "h-4 w-4" : undefined} />
                 </IconButton>
               </Tooltip>
             )}
             <div className="absolute right-2">
               <IconButton
+                size={compact ? "small" : "medium"}
                 id={`fade-button-${model.id}`}
                 aria-controls={isMenuOpen ? `fade-menu-${model.id}` : undefined}
                 aria-haspopup="true"
@@ -491,7 +522,7 @@ const ModelList: React.FC<ModelListProps> = ({
                   setActiveMenuModelId(isMenuOpen ? null : model.id);
                 }}
               >
-                <MoreVertical />
+                <MoreVertical className={compact ? "h-4 w-4" : undefined} />
               </IconButton>
               <Menu
                 id={`fade-menu-${model.id}`}
@@ -547,6 +578,7 @@ const ModelList: React.FC<ModelListProps> = ({
           }`}
         >
           <Checkbox
+            size={compact ? "small" : "medium"}
             checked={isSelected}
             onChange={null}
             slotProps={{ input: { "aria-label": "controlled" } }}
@@ -837,28 +869,34 @@ const ModelList: React.FC<ModelListProps> = ({
 
           {/* Print Groups */}
           {modelView !== "ungrouped" && visibleGroups.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 pb-4">
               {visibleGroups.map((group) => {
                 const allSelected =
                   group.models.length > 0 &&
                   group.models.every((model) => selectedIds.has(model.id));
                 return (
                   <Card key={group.id} variant="outlined">
-                    <CardContent>
+                    <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
                       <Stack
                         direction="row"
-                        spacing={2}
-                        sx={{ alignItems: "center", mb: 2 }}
+                        spacing={1}
+                        sx={{ alignItems: "center", mb: 1 }}
                       >
-                        <Avatar sx={{ bgcolor: "primary.dark" }}>
-                          <Boxes />
+                        <Avatar
+                          sx={{
+                            bgcolor: "primary.dark",
+                            width: 32,
+                            height: 32,
+                          }}
+                        >
+                          <Boxes className="h-4 w-4" />
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <Typography variant="h6" noWrap>
+                          <Typography variant="subtitle1" noWrap>
                             {group.name}
                           </Typography>
                           <Typography
-                            variant="body2"
+                            variant="caption"
                             sx={{ color: "text.secondary" }}
                           >
                             Print group • {group.models.length}{" "}
@@ -869,6 +907,7 @@ const ModelList: React.FC<ModelListProps> = ({
                           title={allSelected ? "Unselect group" : "Select group"}
                         >
                           <Checkbox
+                            size="small"
                             checked={allSelected}
                             disabled={group.models.length === 0}
                             onChange={() =>
@@ -886,17 +925,18 @@ const ModelList: React.FC<ModelListProps> = ({
                         </Tooltip>
                         <Tooltip title="Ungroup (keep models)">
                           <IconButton
+                            size="small"
                             aria-label={`Ungroup print group ${group.name}`}
                             onClick={() => setGroupToDissolve(group)}
                           >
-                            <Unlink />
+                            <Unlink className="h-4 w-4" />
                           </IconButton>
                         </Tooltip>
                       </Stack>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2">
                         {group.models.map((model) =>
-                          renderModelCard(model, group.id),
+                          renderModelCard(model, group.id, true),
                         )}
                       </div>
                     </CardContent>
