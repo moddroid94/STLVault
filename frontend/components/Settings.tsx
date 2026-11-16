@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Check,
-  ChevronLeft,
-  EthernetPort,
-  KeyRound,
-  Wrench,
-  X,
-} from "lucide-react";
+import { ChevronLeft, EthernetPort, KeyRound, Wrench } from "lucide-react";
 import {
   api,
   ALL_SLICER_TYPES,
@@ -15,18 +8,29 @@ import {
   SLICERS,
   SlicerType,
 } from "../services/api";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  CardContent,
+  Chip,
+  Container,
+  Divider,
+  IconButton,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from "@mui/material";
 
 interface SettingsProps {
   onBack: () => void;
 }
 
-interface SlicerConfig {
-  name: string;
-  protocol: string;
-}
-
 const Settings: React.FC<SettingsProps> = ({ onBack }) => {
-  const [apiPortStatus, setApiPortStatus] = useState(false);
   const [makerWorldTokenConfigured, setMakerWorldTokenConfigured] =
     useState(false);
   const [makerWorldToken, setMakerWorldToken] = useState("");
@@ -36,30 +40,23 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [launchSlicers, setLaunchSlicers] = useState<SlicerType[]>(() =>
     getEnabledLaunchSlicers(),
   );
-  // Initialize state directly from localStorage to prevent flash
-  const [selectedSlicer, setSelectedSlicer] = useState<SlicerType>(() => {
-    const saved = localStorage.getItem("stlvault-slicer");
-    return saved && saved in SLICERS ? (saved as SlicerType) : "orcaslicer";
-  });
 
   const [selectedApiPort, setSelectedApiPort] = useState<string>(() => {
-    const envport = import.meta.env.VITE_API_URL;
+    const envport = import.meta.env.VITE_API_URL as string | undefined;
     const port = localStorage.getItem("api-port-override");
-    if (port) {
-      setApiPortStatus(true);
-    }
-    return port ? port : envport;
+    return port ? port : (envport ?? "");
   });
+  const [apiPortStatus, setApiPortStatus] = useState<boolean>(
+    () => !!localStorage.getItem("api-port-override"),
+  );
 
-  // Save slicer preference to localStorage when changed
-  const handleSlicerChange = (slicer: SlicerType) => {
-    const next = launchSlicers.includes(slicer)
-      ? launchSlicers.filter((item) => item !== slicer)
-      : [...launchSlicers, slicer];
-    const safeNext = next.length ? next : [slicer];
-    setLaunchSlicers(safeNext);
-    setSelectedSlicer(safeNext[0]);
-    setEnabledLaunchSlicers(safeNext);
+  const handleSlicerChange = (
+    _event: React.MouseEvent<HTMLElement>,
+    value: SlicerType[] | null,
+  ) => {
+    if (!value || value.length === 0) return;
+    setLaunchSlicers(value);
+    setEnabledLaunchSlicers(value);
   };
 
   useEffect(() => {
@@ -78,7 +75,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       setMakerWorldTokenConfigured(status.configured);
       setMakerWorldToken("");
       setMakerWorldTokenStatus("saved");
-    } catch (error) {
+    } catch {
       setMakerWorldTokenStatus("error");
     }
   };
@@ -89,212 +86,206 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       setMakerWorldTokenConfigured(status.configured);
       setMakerWorldToken("");
       setMakerWorldTokenStatus("cleared");
-    } catch (error) {
+    } catch {
       setMakerWorldTokenStatus("error");
     }
   };
 
-  // Save API port preference to localStorage when changed
   const handleApiPortChange = (port: string) => {
     setSelectedApiPort(port);
+    setApiPortStatus(false);
   };
 
   const handleApiForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedApiPort) return;
-
     localStorage.setItem("api-port-override", selectedApiPort);
     setApiPortStatus(true);
   };
 
   return (
-    <div className="flex-1 p-4 sm:p-8 h-full overflow-y-auto relative flex flex-col">
-      {/* Header Section */}
-      <div className="flex flex-col gap-6 mb-8">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-300 hover:text-white transition-colors"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-1">Settings</h2>
-            <p className="text-sm text-slate-400">
+    <Box sx={{ flex: 1, p: { xs: 2, sm: 4 }, height: "100%", overflowY: "auto" }}>
+      <Container maxWidth="md" disableGutters>
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 4 }}>
+          <IconButton aria-label="Go back" onClick={onBack} edge="start">
+            <ChevronLeft />
+          </IconButton>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Settings
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
               Configure your STL Vault preferences
-            </p>
-          </div>
-        </div>
-      </div>
+            </Typography>
+          </Box>
+        </Stack>
 
-      {/* Content Section */}
-      <div className="flex-1 bg-vault-900/30 rounded-lg p-6 text-slate-300">
-        {/* Slicer Settings */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Wrench className="w-5 h-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">Default Slicer</h3>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">
-            Choose which slicer application to open when clicking "Open in
-            Slicer" button
-          </p>
+        <Stack spacing={4}>
+          {/* Slicer Settings */}
+          <Card variant="outlined">
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Wrench size={20} />
+                  <Typography variant="h6">Default slicer(s)</Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Choose which slicer applications to offer when clicking “Open in Slicer”.
+                  You can enable more than one.
+                </Typography>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {ALL_SLICER_TYPES.map((slicer) => (
-              <button
-                key={slicer}
-                onClick={() => handleSlicerChange(slicer)}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  launchSlicers.includes(slicer)
-                    ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20"
-                    : "border-vault-700 bg-vault-800 hover:border-vault-600"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-white">
-                    {SLICERS[slicer].name}
-                  </span>
-                  {launchSlicers.includes(slicer) && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  )}
-                </div>
-                <span className="text-xs text-slate-500 mt-1 block">
-                  {SLICERS[slicer].protocol}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-4 p-4 bg-vault-800 rounded-lg border border-vault-700">
-            <p className="text-xs text-slate-400">
-              <span className="font-semibold text-slate-300">Note:</span> Your
-              slicer application must be installed and configured to handle
-              protocol links (e.g., {SLICERS[selectedSlicer].protocol}). The
-              exact setup varies by slicer and operating system.
-            </p>
-          </div>
-        </div>
-
-        {/* MakerWorld Settings */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <KeyRound className="w-5 h-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">MakerWorld</h3>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">
-            Add a Bambu Cloud token to enable MakerWorld 3MF downloads.
-          </p>
-          <form onSubmit={handleMakerWorldTokenSubmit}>
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-              <input
-                type="password"
-                className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
-                placeholder={
-                  makerWorldTokenConfigured
-                    ? "Token configured; paste a new token to replace it"
-                    : "Paste MakerWorld token"
-                }
-                value={makerWorldToken}
-                onChange={(e) => {
-                  setMakerWorldToken(e.target.value);
-                  setMakerWorldTokenStatus("idle");
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!makerWorldToken.trim()}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save
-              </button>
-            </div>
-          </form>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <span
-              className={`text-xs ${
-                makerWorldTokenConfigured ? "text-green-400" : "text-amber-400"
-              }`}
-            >
-              {makerWorldTokenConfigured
-                ? "Token configured"
-                : "Token not configured"}
-            </span>
-            {makerWorldTokenConfigured && (
-              <button
-                type="button"
-                onClick={handleMakerWorldTokenClear}
-                className="text-xs text-slate-400 hover:text-white underline"
-              >
-                Clear token
-              </button>
-            )}
-            {makerWorldTokenStatus === "saved" && (
-              <span className="text-xs text-green-400">Saved</span>
-            )}
-            {makerWorldTokenStatus === "cleared" && (
-              <span className="text-xs text-amber-400">Cleared</span>
-            )}
-            {makerWorldTokenStatus === "error" && (
-              <span className="text-xs text-red-400">Update failed</span>
-            )}
-          </div>
-        </div>
-
-        {/* Api Settings*/}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <EthernetPort className="w-5 h-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">API Host</h3>
-          </div>
-          <p className="text-sm text-slate-400 mb-4">Choose the API Host URL</p>
-          <div className="mt-4 p-4 bg-vault-800 rounded-lg border border-vault-700 mb-4 ">
-            <p className="text-xs text-slate-400">
-              <span className="font-semibold text-slate-300">Note:</span> The
-              URL set here will override the one in the ENV variables.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <form onSubmit={handleApiForm}>
-              <div className="grid grid-cols-2 mb-4">
-                <label className="block col-span-2 text-sm font-medium text-slate-400 mb-1">
-                  API URL
-                </label>
-                <input
-                  autoFocus
-                  type="string"
-                  required
-                  className="col-span-2 w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
-                  placeholder="http://0.0.0.0:8989"
-                  value={selectedApiPort}
-                  onChange={(e) => handleApiPortChange(e.target.value)}
-                />
-
-                <p className="col-span-2 w-full text-xs text-slate-500 mt-1">
-                  Insert the port at which the API is served.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={!selectedApiPort}
-                  className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                <ToggleButtonGroup
+                  value={launchSlicers}
+                  onChange={handleSlicerChange}
+                  aria-label="Enabled slicers"
+                  color="primary"
+                  sx={{ flexWrap: "wrap", gap: 1 }}
                 >
-                  Set
-                </button>
-                {apiPortStatus ? (
-                  <Check className="flex text-green-400 rounded-full bg-vault-800 my-auto"></Check>
-                ) : (
-                  <X className="flex text-red-400 rounded-full bg-vault-800 my-auto"></X>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+                  {ALL_SLICER_TYPES.map((slicer) => (
+                    <ToggleButton
+                      key={slicer}
+                      value={slicer}
+                      sx={{ textTransform: "none", borderRadius: 2, px: 2 }}
+                    >
+                      <Stack alignItems="flex-start" spacing={0.25}>
+                        <Typography variant="body2" fontWeight={600}>
+                          {SLICERS[slicer].name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {SLICERS[slicer].protocol}
+                        </Typography>
+                      </Stack>
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+
+                <Alert severity="info" variant="outlined">
+                  Your slicer must be installed and configured to handle the protocol links shown
+                  above (setup varies by slicer and OS).
+                </Alert>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* MakerWorld Settings */}
+          <Card variant="outlined">
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <KeyRound size={20} />
+                  <Typography variant="h6">MakerWorld</Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Add a Bambu Cloud token to enable MakerWorld 3MF downloads.
+                </Typography>
+                <Box component="form" onSubmit={handleMakerWorldTokenSubmit}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    alignItems={{ sm: "flex-start" }}
+                  >
+                    <TextField
+                      fullWidth
+                      type="password"
+                      size="small"
+                      label="MakerWorld token"
+                      placeholder={
+                        makerWorldTokenConfigured
+                          ? "Token set — paste a new token to replace it"
+                          : "Paste token"
+                      }
+                      value={makerWorldToken}
+                      onChange={(e) => {
+                        setMakerWorldToken(e.target.value);
+                        setMakerWorldTokenStatus("idle");
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={!makerWorldToken.trim()}
+                      sx={{ whiteSpace: "nowrap" }}
+                    >
+                      Save token
+                    </Button>
+                  </Stack>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" useFlexGap>
+                  <Chip
+                    size="small"
+                    color={makerWorldTokenConfigured ? "success" : "warning"}
+                    label={makerWorldTokenConfigured ? "Token configured" : "Token not configured"}
+                    variant="outlined"
+                  />
+                  {makerWorldTokenConfigured && (
+                    <Button size="small" color="inherit" onClick={handleMakerWorldTokenClear}>
+                      Clear token
+                    </Button>
+                  )}
+                  {makerWorldTokenStatus === "saved" && (
+                    <Typography variant="caption" color="success.main">
+                      Saved
+                    </Typography>
+                  )}
+                  {makerWorldTokenStatus === "cleared" && (
+                    <Typography variant="caption" color="warning.main">
+                      Cleared
+                    </Typography>
+                  )}
+                  {makerWorldTokenStatus === "error" && (
+                    <Typography variant="caption" color="error.main">
+                      Update failed
+                    </Typography>
+                  )}
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* API Settings */}
+          <Card variant="outlined">
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <EthernetPort size={20} />
+                  <Typography variant="h6">API host</Typography>
+                </Stack>
+                <Typography variant="body2" color="text.secondary">
+                  Override the API base URL used by the app (stored locally in your browser).
+                </Typography>
+                <Alert severity="info" variant="outlined">
+                  This overrides the value from environment variables for this browser.
+                </Alert>
+                <Box component="form" onSubmit={handleApiForm}>
+                  <Stack spacing={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="API URL"
+                      placeholder="http://0.0.0.0:8989"
+                      value={selectedApiPort}
+                      onChange={(e) => handleApiPortChange(e.target.value)}
+                      helperText="Enter the full URL where the API is served."
+                    />
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Button type="submit" variant="contained" disabled={!selectedApiPort}>
+                        Save API URL
+                      </Button>
+                      <Chip
+                        size="small"
+                        color={apiPortStatus ? "success" : "error"}
+                        label={apiPortStatus ? "Override set" : "Using default / not set"}
+                        variant="outlined"
+                      />
+                    </Stack>
+                  </Stack>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
+      </Container>
+    </Box>
   );
 };
 

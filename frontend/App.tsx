@@ -1,44 +1,58 @@
-import React, { useState, useEffect } from "react";
-import Sidebar from "./components/Sidebar";
-import ModelList from "./components/ModelList";
-import DetailPanel from "./components/DetailPanel";
-import Settings from "./components/Settings";
-import Navbar from "./components/Navbar";
-import ManualModal from "./components/ManualModal";
-import {
-  STLModel,
-  Folder,
-  ModelGroup,
-  StorageStats,
-  STLModelCollection,
-} from "./types";
-import { generateThumbnail } from "./services/thumbnailGenerator";
-import { api } from "./services/api";
-import {
-  FolderInput,
-  Tags,
-  X,
-  Trash2,
-  AlertTriangle,
-  Download,
-  FileUp,
-  Globe,
-  Boxes,
-} from "lucide-react";
-import JSZip from "jszip";
-import { useMediaQuery } from "./hooks/useMediaQuery";
-import { useVisualViewport } from "./hooks/useVisualViewport";
-import Snackbar, { SnackbarCloseReason } from "@mui/material/Snackbar";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import CssBaseline from "@mui/material/CssBaseline";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Snackbar from "@mui/material/Snackbar";
+import Stack from "@mui/material/Stack";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Typography from "@mui/material/Typography";
+import JSZip from "jszip";
+import {
+  AlertTriangle,
+  Boxes,
+  ChevronDown,
+  Download,
+  FileUp,
+  FolderInput,
+  Globe,
+  Tags,
+  Trash2,
+  X,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import DetailPanel from "./components/DetailPanel";
+import ManualModal from "./components/ManualModal";
+import ModelList from "./components/ModelList";
+import Navbar from "./components/Navbar";
+import Settings from "./components/Settings";
+import Sidebar from "./components/Sidebar";
+import { useMediaQuery } from "./hooks/useMediaQuery";
+import { useVisualViewport } from "./hooks/useVisualViewport";
+import { api } from "./services/api";
+import { generateThumbnail } from "./services/thumbnailGenerator";
+import {
+  Folder,
+  ModelGroup,
+  STLModel,
+  STLModelCollection,
+  StorageStats,
+} from "./types";
 
 const App = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)", true);
@@ -371,22 +385,23 @@ const App = () => {
   };
 
   const handleUpdateSTEPThumbnail = async (newModel: STLModel) => {
-    let tbuff = await fetch(port + newModel.url).then((response) => {
-      return response;
-    });
-    let thumbnailBuffer = await tbuff.bytes().then((bytes) => {
-      return bytes;
-    });
+    const base = localStorage.getItem("api-port-override") || import.meta.env.VITE_API_URL || "";
+    const fileUrl = newModel.url?.startsWith("http")
+      ? newModel.url
+      : `${base.replace(/\/+$/, "")}${newModel.url?.startsWith("/") ? "" : "/"}${newModel.url || ""}`;
     try {
-      let thumbnail = await generateThumbnail(
+      const response = await fetch(fileUrl);
+      if (!response.ok) return;
+      const thumbnailBuffer = await response.arrayBuffer();
+      const thumbnail = await generateThumbnail(
         new File([thumbnailBuffer], newModel.name),
       );
-      let newerModel = await api.updateModel(newModel.id, {
+      const newerModel = await api.updateModel(newModel.id, {
         thumbnail: thumbnail,
       });
       setModels((prev) => [newerModel, ...prev]);
     } catch (e) {
-      console.warn("Thumbnail generation failed, uploading without thumbnail");
+      console.warn("Thumbnail generation failed, uploading without thumbnail", e);
     }
   };
 
@@ -863,82 +878,68 @@ const App = () => {
                 />
               </div>
 
-              {/* Floating Action Bar - Moved to App to ensure it is top-level Z-index */}
+              {/* Floating Action Bar */}
               {selectedIds.size > 0 && (
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-vault-800 border border-vault-600 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 duration-200">
-                  <div className="flex items-center gap-2 border-r border-vault-600 pr-4">
-                    <span className="font-bold text-white">
+                <Paper
+                  elevation={8}
+                  sx={{
+                    position: "absolute",
+                    bottom: 32,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 50,
+                    px: 2,
+                    py: 1,
+                    borderRadius: 999,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    maxWidth: "calc(100vw - 24px)",
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ pr: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={700}>
                       {selectedIds.size}
-                    </span>
-                    <span className="text-slate-400 text-sm">selected</span>
-                    <button
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      selected
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      aria-label="Clear selection"
                       onClick={() => setSelectedIds(new Set())}
-                      className="ml-2 text-slate-500 hover:text-white"
                     >
                       <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleOpenGroupModal}
-                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-cyan-400 transition-colors flex items-center gap-2"
-                      title="Group Selected"
-                    >
-                      <Boxes className="w-4 h-4" />
-                      <span className="text-sm font-medium hidden sm:inline">
-                        Group
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => setShowMoveModal(true)}
-                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2"
-                      title="Move Selected"
-                    >
-                      <FolderInput className="w-4 h-4" />
-                      <span className="text-sm font-medium hidden sm:inline">
-                        Move
-                      </span>
-                    </button>
-
-                    <button
+                    </IconButton>
+                  </Stack>
+                  <Divider orientation="vertical" flexItem sx={{ display: { xs: "none", sm: "block" } }} />
+                  <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Button size="small" startIcon={<Boxes className="w-4 h-4" />} onClick={handleOpenGroupModal}>
+                      Group
+                    </Button>
+                    <Button size="small" startIcon={<FolderInput className="w-4 h-4" />} onClick={() => setShowMoveModal(true)}>
+                      Move
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<Tags className="w-4 h-4" />}
                       onClick={() => {
                         setBulkTags("");
                         setShowTagModal(true);
                       }}
-                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
-                      title="Tag Selected"
                     >
-                      <Tags className="w-4 h-4" />
-                      <span className="text-sm font-medium hidden sm:inline">
-                        Tag
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={handleBulkDownload}
-                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-green-400 transition-colors flex items-center gap-2"
-                      title="Download Selected"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span className="text-sm font-medium hidden sm:inline">
-                        Download
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={handleBulkDelete}
-                      className="p-2 rounded-full hover:bg-vault-700 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-2"
-                      title="Delete Selected"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="text-sm font-medium hidden sm:inline">
-                        Delete
-                      </span>
-                    </button>
-                  </div>
-                </div>
+                      Tag
+                    </Button>
+                    <Button size="small" startIcon={<Download className="w-4 h-4" />} onClick={handleBulkDownload}>
+                      Download
+                    </Button>
+                    <Button size="small" color="error" startIcon={<Trash2 className="w-4 h-4" />} onClick={handleBulkDelete}>
+                      Delete
+                    </Button>
+                  </Stack>
+                </Paper>
               )}
 
               {/* Modals Layer */}
@@ -951,378 +952,323 @@ const App = () => {
               />
 
               {/* Upload Modal */}
-              {showUploadModal && (
-                <div
-                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                    visualViewport.keyboardOpen ? "items-start" : "items-center"
-                  }`}
-                  style={{
-                    width: "100%",
-                    height:
-                      visualViewport.height ||
-                      (typeof window !== "undefined" ? window.innerHeight : 0),
-                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                  }}
-                >
-                  <div
-                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                    style={{
-                      maxHeight: Math.max(
-                        240,
-                        (visualViewport.height ||
-                          (typeof window !== "undefined"
-                            ? window.innerHeight
-                            : 0)) - 32,
-                      ),
-                    }}
-                  >
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <FileUp className="w-5 h-5 text-blue-500" /> Upload
-                        Files
-                      </h3>
-                      <button
-                        onClick={() => setShowUploadModal(false)}
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <form onSubmit={handleConfirmUpload}>
-                      <div className="mb-4 p-3 bg-vault-900/50 rounded-lg border border-vault-700/50">
-                        <p className="text-sm text-slate-300 font-medium">
-                          {pendingFiles.length} files selected
-                        </p>
-                        <p className="text-xs text-slate-500 truncate mt-1">
-                          {pendingFiles.map((f) => f.name).join(", ")}
-                        </p>
-                      </div>
-
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-400 mb-1">
-                          Destination Folder
-                        </label>
-                        <select
-                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none"
+              <Dialog
+                open={showUploadModal}
+                onClose={() => setShowUploadModal(false)}
+                fullWidth
+                maxWidth="xs"
+              >
+                <DialogTitle>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <FileUp className="w-5 h-5 text-blue-500" />
+                      <Typography variant="h6" component="span">Upload files</Typography>
+                    </Stack>
+                    <IconButton onClick={() => setShowUploadModal(false)} aria-label="Close upload dialog" size="small">
+                      <X className="w-5 h-5" />
+                    </IconButton>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent>
+                  <Stack spacing={2} sx={{ mt: 0.5 }}>
+                    <Alert severity="info" variant="outlined">
+                      {pendingFiles.length} file{pendingFiles.length === 1 ? "" : "s"} selected:{" "}
+                      {pendingFiles.map((f) => f.name).join(", ")}
+                    </Alert>
+                    <Box component="form" id="upload-form" onSubmit={handleConfirmUpload}>
+                      <Stack spacing={2}>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          required
+                          label="Destination folder"
                           value={uploadFolderId}
                           onChange={(e) => setUploadFolderId(e.target.value)}
+                          SelectProps={{ native: true }}
                         >
                           <option value="" disabled>
-                            Select a folder...
+                            Select a folder…
                           </option>
                           {folders.map((folder) => (
                             <option key={folder.id} value={folder.id}>
                               {folder.name}
                             </option>
                           ))}
-                        </select>
-                      </div>
-
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-400 mb-1">
-                          Add Tags (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none placeholder:text-slate-600"
+                        </TextField>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Tags (optional)"
                           placeholder="scifi, armor, weapon..."
                           value={uploadTags}
                           onChange={(e) => setUploadTags(e.target.value)}
+                          helperText="Separate tags with commas"
                         />
-                        <p className="text-xs text-slate-500 mt-1">
-                          Separate tags with commas
-                        </p>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowUploadModal(false)}
-                          className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={!uploadFolderId}
-                          className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Upload
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
+                      </Stack>
+                    </Box>
+                  </Stack>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setShowUploadModal(false)}>Cancel</Button>
+                  <Button type="submit" form="upload-form" variant="contained" disabled={!uploadFolderId}>
+                    Upload
+                  </Button>
+                </DialogActions>
+              </Dialog>
 
               {/* Import URL Modal */}
-              {showImportModal && (
-                <div
-                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                    visualViewport.keyboardOpen ? "items-start" : "items-center"
-                  }`}
-                  style={{
-                    width: "100%",
-                    height:
-                      visualViewport.height ||
-                      (typeof window !== "undefined" ? window.innerHeight : 0),
-                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                  }}
-                >
-                  <div
-                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                    style={{
-                      maxHeight: Math.max(
-                        240,
-                        (visualViewport.height ||
-                          (typeof window !== "undefined"
-                            ? window.innerHeight
-                            : 0)) - 32,
-                      ),
-                    }}
-                  >
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-indigo-500" /> Import
-                        from URL
-                      </h3>
-                      <button
-                        onClick={() => setShowImportModal(false)}
-                        className="text-slate-400 hover:text-white"
+              <Dialog
+                open={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                fullWidth
+                maxWidth="sm"
+              >
+                <DialogTitle>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Globe className="w-5 h-5 text-indigo-500" />
+                      <Typography variant="h6" component="span">Import from URL</Typography>
+                    </Stack>
+                    <IconButton onClick={() => setShowImportModal(false)} aria-label="Close import dialog" size="small">
+                      <X className="w-5 h-5" />
+                    </IconButton>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent>
+                  <Box component="form" id="import-url-form" onSubmit={handleImportSubmit} sx={{ mt: 0.5 }}>
+                    <Stack spacing={2}>
+                      <TextField
+                        autoFocus
+                        required
+                        fullWidth
+                        size="small"
+                        type="url"
+                        label="Model URL"
+                        placeholder="https://www.printables.com/model/... or https://makerworld.com/..."
+                        value={importUrl}
+                        onChange={(e) => setImportUrl(e.target.value)}
+                        helperText="Paste a link from Printables or MakerWorld"
+                      />
+                      <TextField
+                        select
+                        required
+                        fullWidth
+                        size="small"
+                        label="Destination folder"
+                        value={importFolderId}
+                        onChange={(e) => setImportFolderId(e.target.value)}
+                        SelectProps={{ native: true }}
                       >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <form onSubmit={handleImportSubmit}>
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-400 mb-1">
-                          Model URL
-                        </label>
-                        <input
-                          autoFocus
-                          type="url"
-                          required
-                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none placeholder:text-slate-600"
-                          placeholder="https://www.printables.com/model/... or https://makerworld.com/..."
-                          value={importUrl}
-                          onChange={(e) => setImportUrl(e.target.value)}
-                        />
-                        <p className="text-xs text-slate-500 mt-1">
-                          Paste a link from Printables or MakerWorld
-                        </p>
-                      </div>
-
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-400 mb-1">
-                          Destination Folder
-                        </label>
-                        <select
-                          className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-indigo-500 outline-none"
-                          value={importFolderId}
-                          onChange={(e) => setImportFolderId(e.target.value)}
-                        >
-                          <option value="" disabled>
-                            Select a folder...
+                        <option value="" disabled>
+                          Select a folder…
+                        </option>
+                        {folders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
                           </option>
-                          {folders.map((folder) => (
-                            <option key={folder.id} value={folder.id}>
-                              {folder.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowImportModal(false)}
-                          className="flex-1 py-2 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={!importUrl || !importFolderId}
-                          className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Import
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
+                        ))}
+                      </TextField>
+                    </Stack>
+                  </Box>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setShowImportModal(false)}>Cancel</Button>
+                  <Button type="submit" form="import-url-form" variant="contained" disabled={!importUrl || !importFolderId}>
+                    Import
+                  </Button>
+                </DialogActions>
+              </Dialog>
 
               {/* Import Options Modal */}
-              {showImportOptionsModal && (
-                <div
-                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                    visualViewport.keyboardOpen ? "items-start" : "items-center"
-                  }`}
-                  style={{
-                    width: "100%",
-                    height:
-                      visualViewport.height ||
-                      (typeof window !== "undefined" ? window.innerHeight : 0),
-                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                  }}
-                >
-                  <div
-                    className="relative bg-vault-800 border border-vault-600 rounded-xl p-6 w-full lg:w-1/2 shadow-2xl animate-in zoom-in-95 duration-200 "
-                    style={{
-                      maxHeight: Math.max(
-                        240,
-                        (visualViewport.height ||
-                          (typeof window !== "undefined"
-                            ? window.innerHeight
-                            : 0)) - 32,
-                      ),
-                    }}
-                  >
-                    <div className="static flex top-0 justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-indigo-500" /> Select
-                        model to download
-                      </h3>
-                      <button
-                        onClick={() => setShowImportOptionsModal(false)}
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* File List */}
-                    <div
-                      className={`static overflow-auto px-2 ${
-                        visualViewport.height > 900 ? "h-[700px]" : "h-[400px]"
-                      }`}
+              <Dialog
+                open={showImportOptionsModal}
+                onClose={() => setShowImportOptionsModal(false)}
+                fullWidth
+                maxWidth="md"
+              >
+                <DialogTitle>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Globe className="w-5 h-5 text-indigo-500" />
+                      <Typography variant="h6" component="span">
+                        Select files to import
+                      </Typography>
+                    </Stack>
+                    <IconButton
+                      onClick={() => setShowImportOptionsModal(false)}
+                      aria-label="Close import options dialog"
+                      size="small"
                     >
-                      {Array.from(folderOptions).map((f) => (
-                        <div>
-                          <div className="text-xl font-medium p-4">
-                            {f ? f : "Root Folder"}
-                          </div>
-                          {modelsOptions.map((model) => (
-                            <div>
-                              {model.folder == f ? (
-                                <div
-                                  key={model.id}
-                                  onClick={() =>
-                                    handleOptionsToggleSelection(model.id)
-                                  }
-                                  className={`group bg-vault-900 border rounded-xl p-4 cursor-pointer transition-all flex items-center gap-4 mb-2 relative overflow-hidden
-                              ${
-                                selectedOptions.has(model.id)
-                                  ? "border-blue-500 ring-1 ring-blue-500/50"
-                                  : "border-vault-700 hover:border-vault-600"
-                              }
-                            `}
-                                >
-                                  <div className="w-12 h-12 bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 group-hover:text-blue-400 group-hover:scale-110 transition-all shrink-0">
-                                    <img
-                                      src={model.previewPath}
-                                      alt={model.name}
-                                      className="w-12 h-12 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+                      <X className="w-5 h-5" />
+                    </IconButton>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent dividers>
+                  <Stack spacing={1}>
+                    {Array.from(folderOptions)
+                      .sort((a, b) => (a || "").localeCompare(b || ""))
+                      .map((folderName) => {
+                        const folderModels = modelsOptions.filter(
+                          (m) => (m.folder ?? "") === (folderName ?? ""),
+                        );
+                        const allChecked =
+                          folderModels.length > 0 &&
+                          folderModels.every((m) => selectedOptions.has(m.id));
+                        const someChecked =
+                          folderModels.some((m) => selectedOptions.has(m.id)) &&
+                          !allChecked;
+                        return (
+                          <Accordion key={folderName || "__root__"} defaultExpanded>
+                            <AccordionSummary expandIcon={<ChevronDown className="w-5 h-5" />}>
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                                sx={{ width: "100%", pr: 1 }}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <Checkbox
+                                  checked={allChecked}
+                                  indeterminate={someChecked}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const next = new Set(selectedOptions);
+                                    if (allChecked) {
+                                      folderModels.forEach((m) => next.delete(m.id));
+                                    } else {
+                                      folderModels.forEach((m) => next.add(m.id));
+                                    }
+                                    setSelectedOptions(next);
+                                  }}
+                                  inputProps={{ "aria-label": `Select all in ${folderName || "Root Folder"}` }}
+                                />
+                                <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+                                  {folderName || "Root Folder"}
+                                </Typography>
+                                <Chip
+                                  size="small"
+                                  label={`${folderModels.filter((m) => selectedOptions.has(m.id)).length}/${folderModels.length}`}
+                                />
+                              </Stack>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <Stack spacing={1}>
+                                {folderModels.map((model) => (
+                                  <Box
+                                    key={model.id}
+                                    onClick={() => handleOptionsToggleSelection(model.id)}
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 2,
+                                      p: 1.5,
+                                      borderRadius: 1,
+                                      border: 1,
+                                      borderColor: selectedOptions.has(model.id)
+                                        ? "primary.main"
+                                        : "divider",
+                                      cursor: "pointer",
+                                      "&:hover": { borderColor: "primary.light" },
+                                    }}
+                                  >
+                                    <Checkbox
+                                      checked={selectedOptions.has(model.id)}
+                                      onChange={() => handleOptionsToggleSelection(model.id)}
+                                      onClick={(e) => e.stopPropagation()}
                                     />
-                                  </div>
-
-                                  <div className="min-w-0">
-                                    <h3 className="font-semibold text-slate-200 truncate group-hover:text-white">
-                                      {model.name}
-                                    </h3>
-                                    <p className="text-xs text-slate-500">
-                                      {model.typeName}
-                                    </p>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div></div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div
-                      onClick={() => handleImportChoice()}
-                      className="static bottom-0 p-2 mt-4 cursor-pointer rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors text-center"
-                    >
-                      {" "}
-                      Import{" "}
-                    </div>
-                  </div>
-                </div>
-              )}
+                                    <Box
+                                      component="img"
+                                      src={model.previewPath}
+                                      alt=""
+                                      sx={{ width: 48, height: 48, objectFit: "contain", borderRadius: 1 }}
+                                    />
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography variant="body2" noWrap fontWeight={600}>
+                                        {model.name}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {model.typeName}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Stack>
+                            </AccordionDetails>
+                          </Accordion>
+                        );
+                      })}
+                  </Stack>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setShowImportOptionsModal(false)}>Cancel</Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleImportChoice}
+                    disabled={selectedOptions.size === 0}
+                  >
+                    Import {selectedOptions.size > 0 ? `(${selectedOptions.size})` : ""}
+                  </Button>
+                </DialogActions>
+              </Dialog>
 
               {/* Delete Confirmation Modal */}
-              {deleteConfirmState.isOpen && (
-                <div
-                  className={`fixed left-0 top-0 z-[60] bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                    visualViewport.keyboardOpen ? "items-start" : "items-center"
-                  }`}
-                  style={{
-                    width: "100%",
-                    height:
-                      visualViewport.height ||
-                      (typeof window !== "undefined" ? window.innerHeight : 0),
-                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                  }}
-                >
-                  <div
-                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                    style={{
-                      maxHeight: Math.max(
-                        240,
-                        (visualViewport.height ||
-                          (typeof window !== "undefined"
-                            ? window.innerHeight
-                            : 0)) - 32,
-                      ),
-                    }}
+              <Dialog
+                open={deleteConfirmState.isOpen}
+                onClose={() =>
+                  setDeleteConfirmState((prev) => ({ ...prev, isOpen: false }))
+                }
+                aria-labelledby="delete-confirm-title"
+                maxWidth="xs"
+                fullWidth
+              >
+                <DialogTitle id="delete-confirm-title" sx={{ textAlign: "center", pb: 1 }}>
+                  <Stack alignItems="center" spacing={1.5}>
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: "50%",
+                        bgcolor: "error.dark",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: 0.9,
+                      }}
+                    >
+                      <AlertTriangle className="w-6 h-6 text-red-300" />
+                    </Box>
+                    <Typography variant="h6" component="span">
+                      Confirm deletion
+                    </Typography>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent>
+                  <DialogContentText sx={{ textAlign: "center" }}>
+                    {deleteConfirmState.type === "single" &&
+                      "Are you sure you want to delete this model? This action cannot be undone."}
+                    {deleteConfirmState.type === "bulk" &&
+                      `Are you sure you want to delete ${selectedIds.size} models? This action cannot be undone.`}
+                    {deleteConfirmState.type === "folder" &&
+                      "Are you sure you want to delete this folder?"}
+                  </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+                  <Button
+                    onClick={() =>
+                      setDeleteConfirmState((prev) => ({ ...prev, isOpen: false }))
+                    }
+                    variant="outlined"
+                    fullWidth
                   >
-                    <div className="flex flex-col items-center text-center mb-6">
-                      <div className="w-12 h-12 bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-                        <AlertTriangle className="w-6 h-6 text-red-500" />
-                      </div>
-                      <h3 className="text-xl font-bold text-white mb-2">
-                        Confirm Deletion
-                      </h3>
-                      <p className="text-slate-400 text-sm">
-                        {deleteConfirmState.type === "single" &&
-                          "Are you sure you want to delete this model? This action cannot be undone."}
-                        {deleteConfirmState.type === "bulk" &&
-                          `Are you sure you want to delete ${selectedIds.size} models? This action cannot be undone.`}
-                        {deleteConfirmState.type === "folder" &&
-                          "Are you sure you want to delete this folder?"}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() =>
-                          setDeleteConfirmState((prev) => ({
-                            ...prev,
-                            isOpen: false,
-                          }))
-                        }
-                        className="flex-1 py-2.5 rounded-lg bg-vault-700 hover:bg-vault-600 text-slate-200 font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={executeDelete}
-                        className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                    Cancel
+                  </Button>
+                  <Button onClick={executeDelete} color="error" variant="contained" fullWidth>
+                    Delete
+                  </Button>
+                </DialogActions>
+              </Dialog>
 
               <Dialog
                 open={showGroupModal}
@@ -1332,10 +1278,13 @@ const App = () => {
                 maxWidth="xs"
               >
                 <DialogTitle id="print-group-dialog-title">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold flex items-center gap-2">
-                      <Boxes className="w-4 h-4" /> Create Print Group
-                    </span>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Boxes className="w-4 h-4" />
+                      <Typography variant="h6" component="span">
+                        Create print group
+                      </Typography>
+                    </Stack>
                     <IconButton
                       onClick={() => setShowGroupModal(false)}
                       aria-label="Close print group dialog"
@@ -1343,81 +1292,57 @@ const App = () => {
                     >
                       <X className="w-4 h-4" />
                     </IconButton>
-                  </div>
+                  </Stack>
                 </DialogTitle>
                 <DialogContent>
                   <DialogContentText sx={{ mb: 2 }}>
-                    Keep {selectedIds.size} selected models together without
-                    merging their files.
+                    Keep {selectedIds.size} selected model{selectedIds.size === 1 ? "" : "s"} together
+                    without merging their files.
                   </DialogContentText>
                   <form id="print-group-form" onSubmit={handleGroupSubmit}>
-                      <div className="flex gap-2 mb-4">
-                        <button
-                          type="button"
-                          className={`flex-1 px-3 py-2 rounded ${
-                            groupMode === "new"
-                              ? "bg-blue-600 text-white"
-                              : "bg-vault-700 text-slate-300"
-                          }`}
-                          onClick={() => setGroupMode("new")}
-                        >
-                          New group
-                        </button>
-                        <button
-                          type="button"
-                          disabled={modelGroups.length === 0}
-                          className={`flex-1 px-3 py-2 rounded disabled:opacity-40 ${
-                            groupMode === "existing"
-                              ? "bg-blue-600 text-white"
-                              : "bg-vault-700 text-slate-300"
-                          }`}
-                          onClick={() => setGroupMode("existing")}
-                        >
-                          Existing group
-                        </button>
-                      </div>
+                    <ToggleButtonGroup
+                      exclusive
+                      fullWidth
+                      value={groupMode}
+                      onChange={(_, v) => v && setGroupMode(v)}
+                      size="small"
+                      sx={{ mb: 2 }}
+                    >
+                      <ToggleButton value="new">New group</ToggleButton>
+                      <ToggleButton value="existing" disabled={modelGroups.length === 0}>
+                        Existing group
+                      </ToggleButton>
+                    </ToggleButtonGroup>
 
-                      {groupMode === "new" ? (
-                        <div className="mb-4">
-                          <label
-                            htmlFor="print-group-name"
-                            className="block text-sm text-slate-400 mb-1"
-                          >
-                            Group name
-                          </label>
-                          <input
-                            id="print-group-name"
-                            autoFocus
-                            required
-                            value={groupName}
-                            onChange={(e) => setGroupName(e.target.value)}
-                            placeholder="e.g. Desk organizer"
-                            className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                      ) : (
-                        <div className="mb-4">
-                          <label
-                            htmlFor="existing-print-group"
-                            className="block text-sm text-slate-400 mb-1"
-                          >
-                            Print group
-                          </label>
-                          <select
-                            id="existing-print-group"
-                            required
-                            value={targetGroupId}
-                            onChange={(e) => setTargetGroupId(e.target.value)}
-                            className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none"
-                          >
-                            {modelGroups.map((group) => (
-                              <option key={group.id} value={group.id}>
-                                {group.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                    {groupMode === "new" ? (
+                      <TextField
+                        id="print-group-name"
+                        autoFocus
+                        required
+                        fullWidth
+                        label="Group name"
+                        placeholder="e.g. Desk organizer"
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                      />
+                    ) : (
+                      <TextField
+                        id="existing-print-group"
+                        select
+                        required
+                        fullWidth
+                        label="Print group"
+                        value={targetGroupId}
+                        onChange={(e) => setTargetGroupId(e.target.value)}
+                        SelectProps={{ native: true }}
+                      >
+                        {modelGroups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                      </TextField>
+                    )}
                   </form>
                 </DialogContent>
                 <DialogActions>
@@ -1426,133 +1351,92 @@ const App = () => {
                     type="submit"
                     form="print-group-form"
                     variant="contained"
-                    disabled={
-                      groupMode === "new" ? !groupName.trim() : !targetGroupId
-                    }
+                    disabled={groupMode === "new" ? !groupName.trim() : !targetGroupId}
                   >
                     Save group
                   </Button>
                 </DialogActions>
               </Dialog>
 
-              {showMoveModal && (
-                <div
-                  className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                    visualViewport.keyboardOpen ? "items-start" : "items-center"
-                  }`}
-                  style={{
-                    width: "100%",
-                    height:
-                      visualViewport.height ||
-                      (typeof window !== "undefined" ? window.innerHeight : 0),
-                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                  }}
-                >
-                  <div
-                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-80 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                    style={{
-                      maxHeight: Math.max(
-                        200,
-                        (visualViewport.height ||
-                          (typeof window !== "undefined"
-                            ? window.innerHeight
-                            : 0)) - 32,
-                      ),
-                    }}
-                  >
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-white flex items-center gap-2">
-                        <FolderInput className="w-4 h-4" /> Move to Folder
-                      </h3>
-                      <button
-                        onClick={() => setShowMoveModal(false)}
-                        className="text-slate-400 hover:text-white"
+              <Dialog
+                open={showMoveModal}
+                onClose={() => setShowMoveModal(false)}
+                aria-labelledby="move-dialog-title"
+                fullWidth
+                maxWidth="xs"
+              >
+                <DialogTitle id="move-dialog-title">
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <FolderInput className="w-4 h-4" />
+                      <Typography variant="h6" component="span">
+                        Move to folder
+                      </Typography>
+                    </Stack>
+                    <IconButton onClick={() => setShowMoveModal(false)} aria-label="Close move dialog" size="small">
+                      <X className="w-4 h-4" />
+                    </IconButton>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent dividers>
+                  <Stack spacing={0.5}>
+                    {folders.map((folder) => (
+                      <Button
+                        key={folder.id}
+                        onClick={() => handleBulkMoveSubmit(folder.id)}
+                        fullWidth
+                        sx={{ justifyContent: "flex-start", textTransform: "none" }}
                       >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-                      {folders.map((folder) => (
-                        <button
-                          key={folder.id}
-                          onClick={() => handleBulkMoveSubmit(folder.id)}
-                          className="w-full text-left px-3 py-2 rounded hover:bg-vault-700 text-slate-300 hover:text-white text-sm transition-colors"
-                        >
-                          {folder.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+                        {folder.name}
+                      </Button>
+                    ))}
+                  </Stack>
+                </DialogContent>
+              </Dialog>
 
-              {showTagModal && (
-                <div
-                  className={`fixed left-0 top-0 z-50 bg-black/60 backdrop-blur-sm flex justify-center p-4 ${
-                    visualViewport.keyboardOpen ? "items-start" : "items-center"
-                  }`}
-                  style={{
-                    width: "100%",
-                    height:
-                      visualViewport.height ||
-                      (typeof window !== "undefined" ? window.innerHeight : 0),
-                    transform: `translate(${visualViewport.offsetLeft}px, ${visualViewport.offsetTop}px)`,
-                  }}
-                >
-                  <div
-                    className="bg-vault-800 border border-vault-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto"
-                    style={{
-                      maxHeight: Math.max(
-                        240,
-                        (visualViewport.height ||
-                          (typeof window !== "undefined"
-                            ? window.innerHeight
-                            : 0)) - 32,
-                      ),
-                    }}
-                  >
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-white flex items-center gap-2">
-                        <Tags className="w-4 h-4" /> Add Tags
-                      </h3>
-                      <button
-                        onClick={() => setShowTagModal(false)}
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <form onSubmit={handleBulkTagSubmit}>
-                      <p className="text-sm text-slate-400 mb-2">
-                        Add tags to {selectedIds.size} items (comma separated):
-                      </p>
-                      <input
-                        autoFocus
-                        type="text"
-                        className="w-full bg-vault-900 border border-vault-700 rounded-md px-3 py-2 text-white focus:border-blue-500 outline-none mb-4"
-                        placeholder="scifi, armor, weapon..."
-                        value={bulkTags}
-                        onChange={(e) => setBulkTags(e.target.value)}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowTagModal(false)}
-                          className="px-3 py-1.5 text-sm text-slate-300 hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded"
-                        >
-                          Add Tags
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
+              <Dialog
+                open={showTagModal}
+                onClose={() => setShowTagModal(false)}
+                aria-labelledby="tag-dialog-title"
+                fullWidth
+                maxWidth="sm"
+              >
+                <DialogTitle id="tag-dialog-title">
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Tags className="w-4 h-4" />
+                      <Typography variant="h6" component="span">
+                        Add tags
+                      </Typography>
+                    </Stack>
+                    <IconButton onClick={() => setShowTagModal(false)} aria-label="Close tag dialog" size="small">
+                      <X className="w-4 h-4" />
+                    </IconButton>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent>
+                  <DialogContentText sx={{ mb: 2 }}>
+                    Add tags to {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} (comma
+                    separated):
+                  </DialogContentText>
+                  <Box component="form" id="bulk-tag-form" onSubmit={handleBulkTagSubmit}>
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      size="small"
+                      placeholder="scifi, armor, weapon..."
+                      value={bulkTags}
+                      onChange={(e) => setBulkTags(e.target.value)}
+                    />
+                  </Box>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setShowTagModal(false)}>Cancel</Button>
+                  <Button type="submit" form="bulk-tag-form" variant="contained">
+                    Add tags
+                  </Button>
+                </DialogActions>
+              </Dialog>
             </main>
           </>
         )}
