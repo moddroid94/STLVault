@@ -1,21 +1,20 @@
-import React, { useRef, useState, useMemo, useEffect } from "react";
 import {
-  CloudUpload,
-  FileBox,
-  Search,
-  CheckSquare,
-  MoreVertical,
-  Globe,
-  Folder as FolderIcon,
-  DownloadIcon,
-  ScreenShareIcon,
-  XCircle,
-  ChevronLeft,
   BookOpen,
   Boxes,
+  CheckSquare,
+  ChevronLeft,
+  CloudUpload,
+  DownloadIcon,
+  FileBox,
+  Folder as FolderIcon,
+  Globe,
+  MoreVertical,
+  ScreenShareIcon,
+  Search,
   Unlink,
+  XCircle,
 } from "lucide-react";
-import { STLModel, Folder, ModelGroup } from "../types";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   getEnabledLaunchSlicers,
@@ -23,37 +22,37 @@ import {
   SlicerType,
 } from "../services/api";
 import { buildVisibleGroups } from "../services/modelGroupView";
+import { Folder, ModelGroup, STLModel } from "../types";
 
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import CardMedia from "@mui/material/CardMedia";
-import Typography from "@mui/material/Typography";
+import Avatar from "@mui/material/Avatar";
 import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
-import Chip from "@mui/material/Chip";
-import { String } from "three/examples/jsm/transpiler/AST.js";
-import { styled } from "@mui/material/styles";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import Divider from "@mui/material/Divider";
+import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
 import Checkbox from "@mui/material/Checkbox";
-import Avatar from "@mui/material/Avatar";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
-import FormControl from "@mui/material/FormControl";
-import Select, { SelectChangeEvent } from "@mui/material/Select";
-import InputLabel from "@mui/material/InputLabel";
+import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import InputLabel from "@mui/material/InputLabel";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
+import { styled } from "@mui/material/styles";
+import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 
 interface ModelListProps {
   models: STLModel[];
@@ -385,7 +384,7 @@ const ModelList: React.FC<ModelListProps> = ({
             {model.thumbnail ? (
               <CardMedia
                 component="div"
-                className={compact ? "h-28 object-cover" : "h-60 object-cover"}
+                className={compact ? "h-44 object-cover" : "h-60 object-cover"}
                 image={model.thumbnail}
               />
             ) : (
@@ -422,16 +421,40 @@ const ModelList: React.FC<ModelListProps> = ({
               )}
             </div>
             <div className={compact ? "absolute top-1 right-1" : "absolute top-2 right-2"}>
-              <Chip
-                sx={{
-                  borderRadius: 1,
-                  fontWeight: "medium",
-                  ...(compact && { fontSize: "0.65rem", height: 20 }),
-                }}
-                label={model.name.split(".").pop().toUpperCase()}
-                color="info"
-                size="small"
-              />
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Tooltip
+                  title={`Revision ${model.versionNumber ?? 1}${
+                    model.versionCount && model.versionCount > 1
+                      ? ` of ${model.versionCount}`
+                      : ""
+                  }`}
+                >
+                  <Chip
+                    sx={{
+                      borderRadius: 1,
+                      fontWeight: "medium",
+                      ...(compact && { fontSize: "0.65rem", height: 20 }),
+                    }}
+                    label={`v${model.versionNumber ?? 1}`}
+                    color="primary"
+                    size="small"
+                  />
+                </Tooltip>
+                <Chip
+                  sx={{
+                    borderRadius: 1,
+                    fontWeight: "medium",
+                    ...(compact && { fontSize: "0.65rem", height: 20 }),
+                  }}
+                  label={(
+                    model.fileExtension ||
+                    model.name.split(".").pop() ||
+                    ""
+                  ).toUpperCase()}
+                  color="info"
+                  size="small"
+                />
+              </Stack>
             </div>
             <CardContent
               sx={compact ? { p: 1, "&:last-child": { pb: 1 } } : undefined}

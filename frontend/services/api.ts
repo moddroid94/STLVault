@@ -1,6 +1,8 @@
 import {
   Folder,
   ModelGroup,
+  ModelVersion,
+  ModelVersionUpdate,
   STLModel,
   StorageStats,
   STLModelCollection,
@@ -226,8 +228,12 @@ export const api = {
   },
 
   //9b. GET slicer Weblink
-  getSlicerUrl: (model: STLModel, slicer?: SlicerType) => {
-    const modelURL = `${API_BASE_URL}/models/${model.id}/download`;
+  getSlicerUrl: (
+    model: STLModel,
+    slicer?: SlicerType,
+    downloadUrl?: string,
+  ) => {
+    const modelURL = downloadUrl || `${API_BASE_URL}/models/${model.id}/download`;
 
     // Get user's preferred slicer from localStorage
     let slicerPreference =
@@ -356,6 +362,65 @@ export const api = {
     });
     if (!res.ok) throw new Error("File replacement failed");
     return res.json();
+  },
+
+  // --- Model revisions ---
+  getModelVersions: async (modelId: string): Promise<ModelVersion[]> => {
+    const res = await fetch(`${API_BASE_URL}/models/${modelId}/versions`);
+    if (!res.ok) throw new Error("Failed to fetch model history");
+    return res.json();
+  },
+
+  uploadModelVersion: async (
+    modelId: string,
+    file: File,
+    thumbnail?: string,
+    notes?: string,
+  ): Promise<STLModel> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (thumbnail) formData.append("thumbnail", thumbnail);
+    if (notes) formData.append("notes", notes);
+
+    const res = await fetch(`${API_BASE_URL}/models/${modelId}/versions`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Failed to upload new revision");
+    return res.json();
+  },
+
+  updateModelVersion: async (
+    modelId: string,
+    versionId: string,
+    updates: ModelVersionUpdate,
+  ): Promise<STLModel> => {
+    const res = await fetch(
+      `${API_BASE_URL}/models/${modelId}/versions/${versionId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      },
+    );
+    if (!res.ok) throw new Error("Failed to update revision");
+    return res.json();
+  },
+
+  deprecateModelVersion: async (
+    modelId: string,
+    versionId: string,
+  ): Promise<STLModel> => {
+    const res = await fetch(
+      `${API_BASE_URL}/models/${modelId}/versions/${versionId}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error("Failed to deprecate revision");
+    return res.json();
+  },
+
+  getVersionDownloadUrl: (modelId: string, versionId: string) => {
+    return `${API_BASE_URL}/models/${modelId}/versions/${versionId}/download`;
   },
 
   // 14a. REPLACE FILE

@@ -29,8 +29,23 @@
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
 - **👁️ 3D Preview:** Integrated web-based 3D viewer for STL, 3MF, STEP and STP files, with Trackball/Orbit controls switch to allow full rotational freedom (beta)
 - **🖼️ Custom Thumbnails:** Generate a thumbnail of the model from the 3D viewer directly or upload an image to be shown as a thumbnail.
+- **🧬 Model Revisions:** Keep every uploaded version of a model, browse its history, mark the final revision, and deprecate old files without losing their history.
 - **🏷️ Metadata Management:** Add tags, descriptions, and metadata to your models for easy retrieval.
 - **🔍 Global Search:** Sidebar search and filtering to find models library-wide.
+
+---
+
+## 🧬 Model Revisions
+
+Every model keeps a numbered revision history. Uploading a new file no longer overwrites the previous one.
+
+- **Upload a revision:** In the model details panel, use **Upload new revision** (edit mode) or **Add version** to insert a manual revision. Both create the next version number and keep the old file on disk.
+- **Version history:** The details panel lists every revision with its own thumbnail, file name, size, date, notes, and direct download. You can preview any non-deprecated revision; download, viewer, and slicer actions follow the previewed revision.
+- **Final revision:** The final revision is the file served by the main download/viewer/slicer actions (one per model). New revisions become final automatically, and any earlier revision can be set as final again.
+- **Deprecate:** Deprecating keeps the version number and history entry but removes the model file from disk. A revision must first be replaced as final by another revision before it can be deprecated.
+- **Model cards:** Cards show the current version (`vN`) and the file extension of the final revision.
+
+Existing libraries are migrated automatically on startup: models without revision rows receive a v1 entry based on their current file and thumbnail.
 
 ---
 
@@ -152,4 +167,5 @@ The application requires two main volumes to persist data. If you are using the 
 
 - [x] Basic File Management (Upload, Move, Delete)
 - [x] 3D Viewer (STL, 3MF, STEP)
+- [x] Model versioning and revision history
 - [ ] Storage Template for saving files orderly

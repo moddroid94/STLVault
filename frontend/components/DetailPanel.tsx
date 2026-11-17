@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { STLModel } from "../types";
+import { ModelVersion, STLModel } from "../types";
 import Viewer3D from "./Viewer3D";
 import {
   X,
@@ -15,6 +15,10 @@ import {
   AlertTriangle,
   ScreenShareIcon,
   BookOpen,
+  Plus,
+  Star,
+  Eye,
+  Ban,
 } from "lucide-react";
 
 import { generateThumbnail } from "../services/thumbnailGenerator";
@@ -36,6 +40,13 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Box from "@mui/material/Box";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import CircularProgress from "@mui/material/CircularProgress";
 
 interface DetailPanelProps {
   model: STLModel | null;
@@ -46,6 +57,7 @@ interface DetailPanelProps {
   onEditManual: (model: STLModel) => void;
   onUploadManual: (id: string, file: File) => void | Promise<unknown>;
   onDeleteManual: (id: string) => void | Promise<void>;
+  onModelsChanged: () => void | Promise<void>;
 }
 
 const DetailPanel: React.FC<DetailPanelProps> = ({
@@ -57,6 +69,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   onEditManual,
   onUploadManual,
   onDeleteManual,
+  onModelsChanged,
 }) => {
   const [isReplacing, setIsReplacing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,7 +89,17 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     getEnabledLaunchSlicers(),
   );
 
+  const [versions, setVersions] = useState<ModelVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  const [versionBusyId, setVersionBusyId] = useState<string | null>(null);
+  const [versionDialogOpen, setVersionDialogOpen] = useState(false);
+  const [newVersionFile, setNewVersionFile] = useState<File | null>(null);
+  const [newVersionNotes, setNewVersionNotes] = useState("");
+  const [isUploadingVersion, setIsUploadingVersion] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -102,15 +125,23 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     };
   }, []);
 
-  const openSlicerLauncher = (event: React.MouseEvent<HTMLElement>) => {
-    const launchSlicers = getEnabledLaunchSlicers();
-    setEnabledSlicers(launchSlicers);
-    if (launchSlicers.length === 1) {
-      window.location.href = api.getSlicerUrl(model!, launchSlicers[0]);
-      return;
+  const modelId = model?.id;
+  const loadVersions = useCallback(async () => {
+    if (!modelId) return;
+    setVersionsLoading(true);
+    try {
+      setVersions(await api.getModelVersions(modelId));
+    } catch (err) {
+      console.error("Failed to load version history", err);
+    } finally {
+      setVersionsLoading(false);
     }
-    setSlicerAnchorEl(event.currentTarget);
-  };
+  }, [modelId]);
+
+  useEffect(() => {
+    setPreviewVersionId(null);
+    loadVersions();
+  }, [modelId, loadVersions]);
 
   const handleModelLoaded = useCallback(
     (dimensions: { x: number; y: number; z: number }) => {
@@ -123,6 +154,31 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
 
   if (!model) return null;
 
+  const previewVersion =
+    versions.find((version) => version.id === previewVersionId) ||
+    versions.find((version) => version.isFinal) ||
+    null;
+  const previewUrl = previewVersion?.downloadUrl || model.url;
+  const previewFilename = previewVersion?.originalName || model.name;
+  const previewThumbnail = previewVersion?.thumbnailUrl || model.thumbnail;
+  const previewDownloadUrl = previewVersion
+    ? api.getVersionDownloadUrl(model.id, previewVersion.id)
+    : api.getDownloadUrl(model);
+
+  const openSlicerLauncher = (event: React.MouseEvent<HTMLElement>) => {
+    const launchSlicers = getEnabledLaunchSlicers();
+    setEnabledSlicers(launchSlicers);
+    if (launchSlicers.length === 1) {
+      window.location.href = api.getSlicerUrl(
+        model,
+        launchSlicers[0],
+        previewDownloadUrl,
+      );
+      return;
+    }
+    setSlicerAnchorEl(event.currentTarget);
+  };
+
   const handleReplaceFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !model) return;
@@ -132,7 +188,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
       return parts.length > 1 ? parts.pop()?.toLowerCase() : "";
     };
 
-    const currentExt = getExtension(model.name);
+    const currentExt = getExtension(model.fileName || model.name);
     const newExt = getExtension(file.name);
 
     if (currentExt && newExt && currentExt !== newExt) {
@@ -158,9 +214,12 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         size: updated.size,
         thumbnail: updated.thumbnail,
       });
+      setPreviewVersionId(null);
+      await loadVersions();
+      await onModelsChanged();
     } catch (e) {
-      console.error("Failed to replace", e);
-      alert("Failed to replace file");
+      console.error("Failed to upload revision", e);
+      alert("Failed to upload new revision");
     } finally {
       setIsReplacing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -181,12 +240,14 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         size: updated.size,
         thumbnail: updated.thumbnail,
       });
+      await loadVersions();
+      await onModelsChanged();
     } catch (e) {
-      console.error("Failed to replace", e);
-      alert("Failed to replace file");
+      console.error("Failed to replace thumbnail", e);
+      alert("Failed to replace thumbnail");
     } finally {
       setIsReplacing(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (thumbnailInputRef.current) thumbnailInputRef.current.value = "";
     }
   };
 
@@ -238,6 +299,75 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     setIsEditing(false);
   };
 
+  const refreshAfterVersionChange = async () => {
+    await loadVersions();
+    await onModelsChanged();
+  };
+
+  const handleSetFinal = async (version: ModelVersion) => {
+    setVersionBusyId(version.id);
+    try {
+      await api.updateModelVersion(model.id, version.id, { isFinal: true });
+      setPreviewVersionId(null);
+      await refreshAfterVersionChange();
+    } catch (err) {
+      console.error("Failed to set final revision", err);
+      alert("Failed to set final revision");
+    } finally {
+      setVersionBusyId(null);
+    }
+  };
+
+  const handleDeprecateVersion = async (version: ModelVersion) => {
+    if (
+      !window.confirm(
+        `Deprecate revision v${version.versionNumber}? Its file will be removed from disk, but the history entry will be kept.`,
+      )
+    ) {
+      return;
+    }
+    setVersionBusyId(version.id);
+    try {
+      await api.deprecateModelVersion(model.id, version.id);
+      if (previewVersionId === version.id) setPreviewVersionId(null);
+      await refreshAfterVersionChange();
+    } catch (err) {
+      console.error("Failed to deprecate revision", err);
+      alert("Failed to deprecate revision");
+    } finally {
+      setVersionBusyId(null);
+    }
+  };
+
+  const handleManualVersionUpload = async () => {
+    if (!newVersionFile) return;
+    setIsUploadingVersion(true);
+    try {
+      let thumb: string | undefined;
+      try {
+        thumb = await generateThumbnail(newVersionFile);
+      } catch (err) {
+        console.warn("Thumbnail failed", err);
+      }
+      await api.uploadModelVersion(
+        model.id,
+        newVersionFile,
+        thumb,
+        newVersionNotes.trim() || undefined,
+      );
+      setVersionDialogOpen(false);
+      setNewVersionFile(null);
+      setNewVersionNotes("");
+      setPreviewVersionId(null);
+      await refreshAfterVersionChange();
+    } catch (err) {
+      console.error("Failed to upload revision", err);
+      alert("Failed to upload new revision");
+    } finally {
+      setIsUploadingVersion(false);
+    }
+  };
+
   const fileExt = model.name.includes(".")
     ? model.name.split(".").pop()?.toUpperCase()
     : "";
@@ -268,14 +398,27 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             </Typography>
             <div className="-mx-4 sm:mx-0 aspect-square bg-black overflow-hidden sm:rounded-lg border-y sm:border border-vault-700 shadow-inner">
               <Viewer3D
-                url={model.url}
-                filename={model.name}
-                thumbnail={model.thumbnail}
+                url={previewUrl}
+                filename={previewFilename}
+                thumbnail={previewThumbnail}
                 editing={isEditing}
                 onMakeThumbnail={handleGenerateThumbnail}
                 onLoaded={handleModelLoaded}
               />
             </div>
+            {previewVersion && (
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Typography variant="caption" color="text.secondary">
+                  Viewing revision v{previewVersion.versionNumber}
+                  {previewVersion.isFinal ? " (final)" : ""}
+                </Typography>
+                {previewVersionId && (
+                  <Button size="small" onClick={() => setPreviewVersionId(null)}>
+                    Back to final
+                  </Button>
+                )}
+              </Stack>
+            )}
           </section>
 
           {/* Primary actions */}
@@ -286,8 +429,8 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             <Stack direction="row" spacing={1}>
               <Button
                 fullWidth
-                href={api.getDownloadUrl(model)}
-                download={model.name}
+                href={previewDownloadUrl}
+                download={previewFilename}
                 variant="contained"
                 startIcon={<Download size={18} />}
               >
@@ -313,7 +456,11 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                 <MenuItem
                   key={slicer}
                   onClick={() => {
-                    window.location.href = api.getSlicerUrl(model, slicer);
+                    window.location.href = api.getSlicerUrl(
+                      model,
+                      slicer,
+                      previewDownloadUrl,
+                    );
                     setSlicerAnchorEl(null);
                   }}
                 >
@@ -515,6 +662,112 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             </div>
           </section>
 
+          <Divider />
+
+          {/* Version history */}
+          <section aria-labelledby="detail-history-heading" className="space-y-3">
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+              <Typography id="detail-history-heading" variant="overline" color="text.secondary">
+                Version history
+              </Typography>
+              <Button
+                size="small"
+                startIcon={<Plus size={16} />}
+                onClick={() => setVersionDialogOpen(true)}
+              >
+                Add version
+              </Button>
+            </Stack>
+
+            {versionsLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : versions.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No revisions recorded yet.
+              </Typography>
+            ) : (
+              <Stack spacing={1}>
+                {versions.map((version) => (
+                  <Box
+                    key={version.id}
+                    className="rounded-lg border border-vault-700/50 p-3 space-y-2"
+                    sx={{
+                      borderColor:
+                        previewVersion?.id === version.id ? "primary.main" : undefined,
+                      opacity: version.isDeprecated ? 0.65 : 1,
+                    }}
+                  >
+                    <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography variant="subtitle2">v{version.versionNumber}</Typography>
+                      {version.isFinal && (
+                        <Chip size="small" color="success" label="Final" icon={<Star size={12} />} />
+                      )}
+                      {version.isDeprecated && (
+                        <Chip size="small" label="Deprecated" icon={<Ban size={12} />} />
+                      )}
+                      <Box flex={1} />
+                      {!version.isDeprecated && (
+                        <Tooltip title="Preview this revision">
+                          <IconButton
+                            size="small"
+                            onClick={() => setPreviewVersionId(version.id)}
+                            aria-label={`Preview revision ${version.versionNumber}`}
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: "break-word" }}>
+                      {version.originalName} · {new Date(version.dateAdded).toLocaleDateString()} ·{" "}
+                      {(version.size / (1024 * 1024)).toFixed(2)} MB
+                    </Typography>
+                    {version.notes && (
+                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                        {version.notes}
+                      </Typography>
+                    )}
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                      {!version.isFinal && !version.isDeprecated && (
+                        <Button
+                          size="small"
+                          disabled={versionBusyId === version.id}
+                          onClick={() => handleSetFinal(version)}
+                        >
+                          Set final
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        color="error"
+                        disabled={
+                          versionBusyId === version.id ||
+                          version.isDeprecated ||
+                          version.isFinal
+                        }
+                        onClick={() => handleDeprecateVersion(version)}
+                      >
+                        Deprecate
+                      </Button>
+                      {!version.isDeprecated && (
+                        <Button
+                          size="small"
+                          href={api.getVersionDownloadUrl(model.id, version.id)}
+                          download={version.originalName}
+                          startIcon={<Download size={14} />}
+                        >
+                          Download
+                        </Button>
+                      )}
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </section>
+
           {/* File editing (edit mode) */}
           {isEditing && (
             <>
@@ -527,7 +780,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                 <div className="space-y-1.5">
                   <Typography variant="subtitle2">3D model file</Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
-                    {model.id}.{model.name.split(".").pop()}
+                    {model.fileName || model.name}
                   </Typography>
                   <Button
                     fullWidth
@@ -536,7 +789,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                     variant="contained"
                     startIcon={!isReplacing ? <FileUp size={18} /> : <RefreshCw size={18} className="animate-spin" />}
                   >
-                    {isReplacing ? "Uploading…" : "Replace 3D model file"}
+                    {isReplacing ? "Uploading…" : "Upload new revision"}
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -545,6 +798,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                       onChange={handleReplaceFile}
                     />
                   </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    The previous file is kept in version history and stays available.
+                  </Typography>
                 </div>
 
                 <div className="space-y-2">
@@ -566,7 +822,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                       {isReplacing ? "Uploading…" : "Replace thumbnail"}
                       <input
                         type="file"
-                        ref={fileInputRef}
+                        ref={thumbnailInputRef}
                         className="hidden"
                         accept=".jpeg,.png,.jpg"
                         onChange={handleReplaceThumbnail}
@@ -661,6 +917,54 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* Add manual revision */}
+      <Dialog
+        open={versionDialogOpen}
+        onClose={() => setVersionDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Add new revision</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Upload a file to create the next numbered revision. It becomes the
+            final revision; previous files stay in the history.
+          </DialogContentText>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Button component="label" variant="outlined" startIcon={<FileUp size={18} />}>
+              {newVersionFile ? newVersionFile.name : "Choose file"}
+              <input
+                type="file"
+                className="hidden"
+                accept=".stl,.step,.stp,.3mf"
+                onChange={(e) => setNewVersionFile(e.target.files?.[0] || null)}
+              />
+            </Button>
+            <TextField
+              fullWidth
+              label="Revision notes"
+              value={newVersionNotes}
+              onChange={(e) => setNewVersionNotes(e.target.value)}
+              placeholder="What changed in this revision?"
+              multiline
+              minRows={2}
+              size="small"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVersionDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleManualVersionUpload}
+            disabled={!newVersionFile || isUploadingVersion}
+            variant="contained"
+            startIcon={isUploadingVersion ? <CircularProgress size={16} /> : <Plus size={16} />}
+          >
+            {isUploadingVersion ? "Uploading…" : "Add revision"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
