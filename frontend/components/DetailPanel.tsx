@@ -1,53 +1,53 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import {
+  AlertTriangle,
+  Ban,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  Download,
+  Edit,
+  Eye,
+  FileUp,
+  HardDrive,
+  Plus,
+  RefreshCw,
+  Save,
+  ScreenShareIcon,
+  Star,
+  Tag as TagIcon,
+  Trash2,
+  X,
+} from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ModelVersion, STLModel } from "../types";
 import Viewer3D from "./Viewer3D";
-import {
-  X,
-  Download,
-  Tag as TagIcon,
-  Save,
-  Edit,
-  Trash2,
-  Calendar,
-  HardDrive,
-  FileUp,
-  RefreshCw,
-  AlertTriangle,
-  ScreenShareIcon,
-  BookOpen,
-  Plus,
-  Star,
-  Eye,
-  CheckCircle2,
-  Ban,
-} from "lucide-react";
 
-import { generateThumbnail } from "../services/thumbnailGenerator";
+import { Typography } from "@mui/material";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import OutlinedInput from "@mui/material/OutlinedInput";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import {
   api,
   getEnabledLaunchSlicers,
   SLICERS,
   SlicerType,
 } from "../services/api";
-import { Typography } from "@mui/material";
-import Button from "@mui/material/Button";
-import Stack from "@mui/material/Stack";
-import Divider from "@mui/material/Divider";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import TextField from "@mui/material/TextField";
-import Chip from "@mui/material/Chip";
-import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import Box from "@mui/material/Box";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogActions from "@mui/material/DialogActions";
-import CircularProgress from "@mui/material/CircularProgress";
+import { generateThumbnail } from "../services/thumbnailGenerator";
 
 interface DetailPanelProps {
   model: STLModel | null;
