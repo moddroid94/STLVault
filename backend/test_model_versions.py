@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 from starlette.requests import Request
 
+
 _env_dir = tempfile.TemporaryDirectory()
 os.environ["DB_PATH"] = os.path.join(_env_dir.name, "data.db")
 os.environ["FILE_STORAGE"] = _env_dir.name
@@ -30,7 +31,9 @@ class ModelVersionTest(unittest.TestCase):
         storage = os.environ.get("FILE_STORAGE")
         if storage:
             app.UPLOAD_DIR = Path(storage)
-            app.MANUAL_DIR = Path(os.environ.get("MANUAL_STORAGE", str(app.UPLOAD_DIR / "manuals")))
+            app.MANUAL_DIR = Path(
+                os.environ.get("MANUAL_STORAGE", str(app.UPLOAD_DIR / "manuals"))
+            )
         else:
             app.UPLOAD_DIR, app.MANUAL_DIR = self._original[1], self._original[2]
         app.MANUAL_DIR.mkdir(parents=True, exist_ok=True)
@@ -85,7 +88,9 @@ class ModelVersionTest(unittest.TestCase):
 
     def version_filename(self, version_id):
         conn = sqlite3.connect(app.DB_PATH)
-        row = conn.execute("SELECT filename FROM model_versions WHERE id=?", (version_id,)).fetchone()
+        row = conn.execute(
+            "SELECT filename FROM model_versions WHERE id=?", (version_id,)
+        ).fetchone()
         conn.close()
         return row[0] if row else None
 
@@ -120,7 +125,9 @@ class ModelVersionTest(unittest.TestCase):
         self.assertEqual(len(versions), 2)
         new_v2 = next(v for v in versions if v["versionNumber"] == 2)
         self.assertTrue(new_v2["isDefault"])
-        self.assertFalse(next(v for v in versions if v["versionNumber"] == 1)["isDefault"])
+        self.assertFalse(
+            next(v for v in versions if v["versionNumber"] == 1)["isDefault"]
+        )
         self.assertEqual(new_v2["notes"], "refined")
         self.assertEqual(model["versionNumber"], 2)
         self.assertEqual(model["versionCount"], 2)
@@ -142,13 +149,19 @@ class ModelVersionTest(unittest.TestCase):
         self.upload_file()
         v2 = next(v for v in self.versions() if v["versionNumber"] == 2)
 
-        model = app.update_model_version("model-1", v1["id"], app.ModelVersionUpdate(isDefault=True))
+        model = app.update_model_version(
+            "model-1", v1["id"], app.ModelVersionUpdate(isDefault=True)
+        )
         self.assertEqual(model["versionNumber"], 1)
         self.assertEqual(Path(app.download_model("model-1").path).name, "model-1.stl")
-        self.assertFalse(next(v for v in self.versions() if v["id"] == v2["id"])["isDefault"])
+        self.assertFalse(
+            next(v for v in self.versions() if v["id"] == v2["id"])["isDefault"]
+        )
 
         with self.assertRaises(HTTPException) as raised:
-            app.update_model_version("model-1", v2["id"], app.ModelVersionUpdate(isDefault=False))
+            app.update_model_version(
+                "model-1", v2["id"], app.ModelVersionUpdate(isDefault=False)
+            )
         self.assertEqual(raised.exception.status_code, 400)
 
     def test_final_is_exclusive_and_independent_from_default(self):
@@ -157,15 +170,21 @@ class ModelVersionTest(unittest.TestCase):
         self.upload_file()
         v2 = next(v for v in self.versions() if v["versionNumber"] == 2)
 
-        app.update_model_version("model-1", v1["id"], app.ModelVersionUpdate(isFinal=True))
-        app.update_model_version("model-1", v2["id"], app.ModelVersionUpdate(isFinal=True))
+        app.update_model_version(
+            "model-1", v1["id"], app.ModelVersionUpdate(isFinal=True)
+        )
+        app.update_model_version(
+            "model-1", v2["id"], app.ModelVersionUpdate(isFinal=True)
+        )
 
         versions = {v["versionNumber"]: v for v in self.versions()}
         self.assertFalse(versions[1]["isFinal"])
         self.assertTrue(versions[2]["isFinal"])
         self.assertTrue(versions[2]["isDefault"])
 
-        app.update_model_version("model-1", v2["id"], app.ModelVersionUpdate(isFinal=False))
+        app.update_model_version(
+            "model-1", v2["id"], app.ModelVersionUpdate(isFinal=False)
+        )
         self.assertFalse(any(v["isFinal"] for v in self.versions()))
 
     def test_deprecate_keeps_history_but_removes_the_file(self):
@@ -178,12 +197,16 @@ class ModelVersionTest(unittest.TestCase):
             app.deprecate_model_version("model-1", v2["id"])
         self.assertEqual(raised.exception.status_code, 400)
 
-        app.update_model_version("model-1", v1["id"], app.ModelVersionUpdate(isFinal=True))
+        app.update_model_version(
+            "model-1", v1["id"], app.ModelVersionUpdate(isFinal=True)
+        )
         with self.assertRaises(HTTPException) as raised:
             app.deprecate_model_version("model-1", v1["id"])
         self.assertEqual(raised.exception.status_code, 400)
 
-        app.update_model_version("model-1", v1["id"], app.ModelVersionUpdate(isFinal=False))
+        app.update_model_version(
+            "model-1", v1["id"], app.ModelVersionUpdate(isFinal=False)
+        )
         app.deprecate_model_version("model-1", v1["id"])
 
         versions = self.versions()
@@ -217,7 +240,9 @@ class ModelVersionTest(unittest.TestCase):
 
         self.assertEqual(list(app.UPLOAD_DIR.glob("*.stl")), [])
         conn = sqlite3.connect(app.DB_PATH)
-        remaining = conn.execute("SELECT COUNT(*) FROM model_versions WHERE id IN (?,?)", version_ids).fetchone()[0]
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM model_versions WHERE id IN (?,?)", version_ids
+        ).fetchone()[0]
         conn.close()
         self.assertEqual(remaining, 0)
 

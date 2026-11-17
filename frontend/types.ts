@@ -33,8 +33,7 @@ export interface STLModel {
   groupName?: string | null;
   versionNumber?: number;
   versionCount?: number;
-  versionIsFinal?: boolean;
-  defaultVersionId?: string | null;
+  finalVersionId?: string | null;
   fileExtension?: string;
   fileName?: string;
 }
@@ -47,7 +46,6 @@ export interface ModelVersion {
   size: number;
   dateAdded: number;
   notes: string;
-  isDefault: boolean;
   isFinal: boolean;
   isDeprecated: boolean;
   hasThumbnail: boolean;
@@ -56,7 +54,6 @@ export interface ModelVersion {
 }
 
 export interface ModelVersionUpdate {
-  isDefault?: boolean;
   isFinal?: boolean;
   notes?: string;
 }
