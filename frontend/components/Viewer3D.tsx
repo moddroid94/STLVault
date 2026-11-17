@@ -191,13 +191,17 @@ const StepModel = ({
 }: Viewer3DProps) => {
   const [obj, setObj] = useState(null);
   useEffect(() => {
+    let active = true;
     async function load() {
       const urlpath = API_BASE_URL + url;
       const mainObject = await LoadStep(urlpath);
-      setObj(mainObject);
+      if (active) setObj(mainObject);
     }
     load();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [url]);
   const { gl } = useThree();
   useMemo(() => {
     if (updateThumb) {

@@ -31,6 +31,34 @@ export interface STLModel {
   manual?: string | null;
   groupId?: string | null;
   groupName?: string | null;
+  versionNumber?: number;
+  versionCount?: number;
+  versionIsFinal?: boolean;
+  defaultVersionId?: string | null;
+  fileExtension?: string;
+  fileName?: string;
+}
+
+export interface ModelVersion {
+  id: string;
+  modelId: string;
+  versionNumber: number;
+  originalName: string;
+  size: number;
+  dateAdded: number;
+  notes: string;
+  isDefault: boolean;
+  isFinal: boolean;
+  isDeprecated: boolean;
+  hasThumbnail: boolean;
+  thumbnailUrl: string | null;
+  downloadUrl: string;
+}
+
+export interface ModelVersionUpdate {
+  isDefault?: boolean;
+  isFinal?: boolean;
+  notes?: string;
 }
 
 export interface ModelGroup {

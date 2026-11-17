@@ -422,16 +422,54 @@ const ModelList: React.FC<ModelListProps> = ({
               )}
             </div>
             <div className={compact ? "absolute top-1 right-1" : "absolute top-2 right-2"}>
-              <Chip
-                sx={{
-                  borderRadius: 1,
-                  fontWeight: "medium",
-                  ...(compact && { fontSize: "0.65rem", height: 20 }),
-                }}
-                label={model.name.split(".").pop().toUpperCase()}
-                color="info"
-                size="small"
-              />
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                {model.versionIsFinal && (
+                  <Tooltip title="Final revision">
+                    <Chip
+                      sx={{
+                        borderRadius: 1,
+                        fontWeight: "bold",
+                        ...(compact && { fontSize: "0.6rem", height: 18 }),
+                      }}
+                      label="Final"
+                      color="success"
+                      size="small"
+                    />
+                  </Tooltip>
+                )}
+                <Tooltip
+                  title={`Revision ${model.versionNumber ?? 1}${
+                    model.versionCount && model.versionCount > 1
+                      ? ` of ${model.versionCount}`
+                      : ""
+                  }`}
+                >
+                  <Chip
+                    sx={{
+                      borderRadius: 1,
+                      fontWeight: "medium",
+                      ...(compact && { fontSize: "0.65rem", height: 20 }),
+                    }}
+                    label={`v${model.versionNumber ?? 1}`}
+                    color="primary"
+                    size="small"
+                  />
+                </Tooltip>
+                <Chip
+                  sx={{
+                    borderRadius: 1,
+                    fontWeight: "medium",
+                    ...(compact && { fontSize: "0.65rem", height: 20 }),
+                  }}
+                  label={(
+                    model.fileExtension ||
+                    model.name.split(".").pop() ||
+                    ""
+                  ).toUpperCase()}
+                  color="info"
+                  size="small"
+                />
+              </Stack>
             </div>
             <CardContent
               sx={compact ? { p: 1, "&:last-child": { pb: 1 } } : undefined}

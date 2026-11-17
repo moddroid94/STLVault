@@ -607,6 +607,10 @@ const App = () => {
     setModelGroups(fetchedGroups);
   };
 
+  const handleModelsChanged = async () => {
+    setModels(await api.getModels("all"));
+  };
+
   const handleOpenGroupModal = () => {
     setGroupMode("new");
     setGroupName("");
@@ -875,6 +879,7 @@ const App = () => {
                   }
                   onUploadManual={handleUploadManual}
                   onDeleteManual={handleDeleteManual}
+                  onModelsChanged={handleModelsChanged}
                 />
               </div>
 
