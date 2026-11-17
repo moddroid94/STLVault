@@ -29,7 +29,7 @@
 - **📦 Bulk Actions:** Tag, move, delete, download, or upload multiple files at once.
 - **👁️ 3D Preview:** Integrated web-based 3D viewer for STL, 3MF, STEP and STP files, with Trackball/Orbit controls switch to allow full rotational freedom (beta)
 - **🖼️ Custom Thumbnails:** Generate a thumbnail of the model from the 3D viewer directly or upload an image to be shown as a thumbnail.
-- **🧬 Model Revisions:** Keep every uploaded version of a model, browse its history, mark the final revision, and deprecate old files without losing their history.
+- **🧬 Model Revisions:** Keep every uploaded version of a model, browse its history, mark default/final revisions, and deprecate old files without losing their history.
 - **🏷️ Metadata Management:** Add tags, descriptions, and metadata to your models for easy retrieval.
 - **🔍 Global Search:** Sidebar search and filtering to find models library-wide.
 
@@ -41,9 +41,10 @@ Every model keeps a numbered revision history. Uploading a new file no longer ov
 
 - **Upload a revision:** In the model details panel, use **Upload new revision** (edit mode) or **Add version** to insert a manual revision. Both create the next version number and keep the old file on disk.
 - **Version history:** The details panel lists every revision with its own thumbnail, file name, size, date, notes, and direct download. You can preview any non-deprecated revision; download, viewer, and slicer actions follow the previewed revision.
-- **Final revision:** The final revision is the file served by the main download/viewer/slicer actions (one per model). New revisions become final automatically, and any earlier revision can be set as final again.
-- **Deprecate:** Deprecating keeps the version number and history entry but removes the model file from disk. A revision must first be replaced as final by another revision before it can be deprecated.
-- **Model cards:** Cards show the current version (`vN`) and the file extension of the final revision.
+- **Default revision:** The default is the file served by the main download/viewer/slicer actions. New revisions become the default automatically, and any earlier revision can be set as default again.
+- **Final revision:** `Final` is only a marker (one per model). It does not lock the model—new revisions can still be uploaded.
+- **Deprecate:** Deprecating keeps the version number and history entry but removes the model file from disk. A revision must first be unset as default/final before it can be deprecated.
+- **Model cards:** Cards show the current version (`vN`), a `Final` badge when applicable, and the file extension of the default revision.
 
 Existing libraries are migrated automatically on startup: models without revision rows receive a v1 entry based on their current file and thumbnail.
 
@@ -61,10 +62,12 @@ Existing libraries are migrated automatically on startup: models without revisio
 
 ## 📸 Screenshots
 
-![Dashboard Preview](https://github.com/user-attachments/assets/33be62e6-d7fd-455b-9ef1-e1d363bff6f8)
-![Model Group](https://github.com/user-attachments/assets/c7cd672c-5c8b-4e5b-b211-447025c3bc0d)
-![Model Viewer/Info Preview](https://github.com/user-attachments/assets/db0c4141-51f6-408d-a6c5-9b3df20a3fc7)![ModelViewer2](https://github.com/user-attachments/assets/dc470ef9-0cf3-4f08-b60d-3985d2461576)
-![Setting Page](https://github.com/user-attachments/assets/23c703ce-73b0-43bb-9ff4-f4a64c5f7147)
+![Dashboard Preview](https://github.com/user-attachments/assets/aa1def9a-e979-4eff-bbf1-5c61cbabc97b)
+
+![Model Viewer/Info Preview](https://github.com/user-attachments/assets/8a240b90-e641-4252-ad39-db3094d4fffd)![ModelViewer2](https://github.com/user-attachments/assets/c6a6af23-5b52-4850-8862-f385f5f19ac2)
+![Setting Page](https://github.com/user-attachments/assets/1e36bec6-8cda-4414-8dea-b4a413f41261)
+
+
 
 ---
 

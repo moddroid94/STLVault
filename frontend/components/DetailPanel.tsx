@@ -1,52 +1,53 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import {
+  AlertTriangle,
+  Ban,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  Download,
+  Edit,
+  Eye,
+  FileUp,
+  HardDrive,
+  Plus,
+  RefreshCw,
+  Save,
+  ScreenShareIcon,
+  Star,
+  Tag as TagIcon,
+  Trash2,
+  X,
+} from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ModelVersion, STLModel } from "../types";
 import Viewer3D from "./Viewer3D";
-import {
-  X,
-  Download,
-  Tag as TagIcon,
-  Save,
-  Edit,
-  Trash2,
-  Calendar,
-  HardDrive,
-  FileUp,
-  RefreshCw,
-  AlertTriangle,
-  ScreenShareIcon,
-  BookOpen,
-  Plus,
-  Star,
-  Eye,
-  Ban,
-} from "lucide-react";
 
-import { generateThumbnail } from "../services/thumbnailGenerator";
+import { Typography } from "@mui/material";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import OutlinedInput from "@mui/material/OutlinedInput";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import {
   api,
   getEnabledLaunchSlicers,
   SLICERS,
   SlicerType,
 } from "../services/api";
-import { Typography } from "@mui/material";
-import Button from "@mui/material/Button";
-import Stack from "@mui/material/Stack";
-import Divider from "@mui/material/Divider";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import TextField from "@mui/material/TextField";
-import Chip from "@mui/material/Chip";
-import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import Box from "@mui/material/Box";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogActions from "@mui/material/DialogActions";
-import CircularProgress from "@mui/material/CircularProgress";
+import { generateThumbnail } from "../services/thumbnailGenerator";
 
 interface DetailPanelProps {
   model: STLModel | null;
@@ -156,7 +157,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
 
   const previewVersion =
     versions.find((version) => version.id === previewVersionId) ||
-    versions.find((version) => version.isFinal) ||
+    versions.find((version) => version.isDefault) ||
     null;
   const previewUrl = previewVersion?.downloadUrl || model.url;
   const previewFilename = previewVersion?.originalName || model.name;
@@ -304,15 +305,30 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     await onModelsChanged();
   };
 
-  const handleSetFinal = async (version: ModelVersion) => {
+  const handleSetDefault = async (version: ModelVersion) => {
     setVersionBusyId(version.id);
     try {
-      await api.updateModelVersion(model.id, version.id, { isFinal: true });
+      await api.updateModelVersion(model.id, version.id, { isDefault: true });
       setPreviewVersionId(null);
       await refreshAfterVersionChange();
     } catch (err) {
-      console.error("Failed to set final revision", err);
-      alert("Failed to set final revision");
+      console.error("Failed to set default revision", err);
+      alert("Failed to set default revision");
+    } finally {
+      setVersionBusyId(null);
+    }
+  };
+
+  const handleToggleFinal = async (version: ModelVersion) => {
+    setVersionBusyId(version.id);
+    try {
+      await api.updateModelVersion(model.id, version.id, {
+        isFinal: !version.isFinal,
+      });
+      await refreshAfterVersionChange();
+    } catch (err) {
+      console.error("Failed to update final marker", err);
+      alert("Failed to update final marker");
     } finally {
       setVersionBusyId(null);
     }
@@ -410,11 +426,12 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                 <Typography variant="caption" color="text.secondary">
                   Viewing revision v{previewVersion.versionNumber}
+                  {previewVersion.isDefault ? " (default)" : ""}
                   {previewVersion.isFinal ? " (final)" : ""}
                 </Typography>
                 {previewVersionId && (
                   <Button size="small" onClick={() => setPreviewVersionId(null)}>
-                    Back to final
+                    Back to default
                   </Button>
                 )}
               </Stack>
@@ -701,6 +718,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                   >
                     <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
                       <Typography variant="subtitle2">v{version.versionNumber}</Typography>
+                      {version.isDefault && (
+                        <Chip size="small" color="primary" label="Default" icon={<CheckCircle2 size={12} />} />
+                      )}
                       {version.isFinal && (
                         <Chip size="small" color="success" label="Final" icon={<Star size={12} />} />
                       )}
@@ -730,21 +750,29 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
                       </Typography>
                     )}
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                      {!version.isFinal && !version.isDeprecated && (
+                      {!version.isDefault && !version.isDeprecated && (
                         <Button
                           size="small"
                           disabled={versionBusyId === version.id}
-                          onClick={() => handleSetFinal(version)}
+                          onClick={() => handleSetDefault(version)}
                         >
-                          Set final
+                          Set default
                         </Button>
                       )}
+                      <Button
+                        size="small"
+                        disabled={versionBusyId === version.id || version.isDeprecated}
+                        onClick={() => handleToggleFinal(version)}
+                      >
+                        {version.isFinal ? "Remove final" : "Mark final"}
+                      </Button>
                       <Button
                         size="small"
                         color="error"
                         disabled={
                           versionBusyId === version.id ||
                           version.isDeprecated ||
+                          version.isDefault ||
                           version.isFinal
                         }
                         onClick={() => handleDeprecateVersion(version)}
@@ -929,7 +957,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         <DialogContent>
           <DialogContentText>
             Upload a file to create the next numbered revision. It becomes the
-            final revision; previous files stay in the history.
+            default revision; previous files stay in the history.
           </DialogContentText>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Button component="label" variant="outlined" startIcon={<FileUp size={18} />}>

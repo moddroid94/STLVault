@@ -1,28 +1,27 @@
-import os
-import uuid
-import time
-import shutil
-import sqlite3
 import base64
 import binascii
 import hashlib
+import json
+import os
+import shutil
+import sqlite3
+import time
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 from fastapi import (
     FastAPI,
-    UploadFile,
     File,
     Form,
     HTTPException,
     Request,
+    UploadFile,
 )
 from fastapi.responses import FileResponse, Response
-from starlette.middleware.cors import CORSMiddleware
-import json
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field
-
-
 from importers import makerworld, printables
+from pydantic import BaseModel, Field
+from starlette.middleware.cors import CORSMiddleware
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
 UPLOAD_DIR = Path(os.getenv("FILE_STORAGE", "./app/uploads"))
@@ -50,6 +49,7 @@ class ModelGroupMembers(BaseModel):
 
 
 class ModelVersionUpdate(BaseModel):
+    isDefault: Optional[bool] = None
     isFinal: Optional[bool] = None
     notes: Optional[str] = None
 
@@ -139,9 +139,7 @@ def init_db():
         )
         """
     )
-    cur.execute(
-        "CREATE INDEX IF NOT EXISTS idx_model_group_members_group ON model_group_members(groupId, position)"
-    )
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_model_group_members_group ON model_group_members(groupId, position)")
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS model_versions (
@@ -154,6 +152,7 @@ def init_db():
             dateAdded INTEGER NOT NULL,
             notes TEXT,
             thumbnail TEXT,
+            isDefault INTEGER NOT NULL DEFAULT 0,
             isFinal INTEGER NOT NULL DEFAULT 0,
             isDeprecated INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY(modelId) REFERENCES models(id) ON DELETE CASCADE,
@@ -161,23 +160,11 @@ def init_db():
         )
         """
     )
-    # Collapse the old two-flag schema (isDefault + marker isFinal) into one:
-    # isFinal is now the served revision and takes over isDefault's values.
-    version_columns = {
-        row[1] for row in cur.execute("PRAGMA table_info(model_versions)").fetchall()
-    }
-    if "isDefault" in version_columns:
-        cur.execute("DROP INDEX IF EXISTS idx_model_versions_default")
-        cur.execute("DROP INDEX IF EXISTS idx_model_versions_final")
-        if "isFinal" in version_columns:
-            cur.execute("ALTER TABLE model_versions DROP COLUMN isFinal")
-        cur.execute("ALTER TABLE model_versions RENAME COLUMN isDefault TO isFinal")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_model_versions_model ON model_versions(modelId, versionNumber DESC)")
     cur.execute(
-        "CREATE INDEX IF NOT EXISTS idx_model_versions_model ON model_versions(modelId, versionNumber DESC)"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_model_versions_default ON model_versions(modelId) WHERE isDefault=1"
     )
-    cur.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_model_versions_final ON model_versions(modelId) WHERE isFinal=1"
-    )
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_model_versions_final ON model_versions(modelId) WHERE isFinal=1")
     try:
         cur.execute("ALTER TABLE models ADD COLUMN manual TEXT")
     except sqlite3.OperationalError:
@@ -203,8 +190,8 @@ def init_db():
             """
             INSERT INTO model_versions(
                 id, modelId, versionNumber, filename, originalName, size,
-                dateAdded, notes, thumbnail, isFinal, isDeprecated
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                dateAdded, notes, thumbnail, isDefault, isFinal, isDeprecated
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 str(uuid.uuid4()),
@@ -217,6 +204,7 @@ def init_db():
                 "Initial version",
                 model["thumbnail"],
                 1,
+                0,
                 0,
             ),
         )
@@ -250,14 +238,16 @@ def row_to_folder(row: sqlite3.Row) -> Dict[str, Any]:
 
 MODEL_VERSION_COLUMNS = """
         COALESCE((SELECT v.versionNumber FROM model_versions v
-                  WHERE v.modelId = m.id AND v.isFinal = 1), 1) AS versionNumber,
+                  WHERE v.modelId = m.id AND v.isDefault = 1), 1) AS versionNumber,
         (SELECT COUNT(*) FROM model_versions v WHERE v.modelId = m.id) AS versionCount,
+        COALESCE((SELECT v.isFinal FROM model_versions v
+                  WHERE v.modelId = m.id AND v.isDefault = 1), 0) AS versionIsFinal,
         (SELECT v.id FROM model_versions v
-         WHERE v.modelId = m.id AND v.isFinal = 1) AS finalVersionId,
+         WHERE v.modelId = m.id AND v.isDefault = 1) AS defaultVersionId,
         (SELECT v.filename FROM model_versions v
-         WHERE v.modelId = m.id AND v.isFinal = 1) AS finalVersionFilename,
+         WHERE v.modelId = m.id AND v.isDefault = 1) AS defaultVersionFilename,
         (SELECT v.originalName FROM model_versions v
-         WHERE v.modelId = m.id AND v.isFinal = 1) AS finalVersionOriginalName
+         WHERE v.modelId = m.id AND v.isDefault = 1) AS defaultVersionOriginalName
 """
 
 
@@ -275,8 +265,8 @@ def row_to_model(row: sqlite3.Row) -> Dict[str, Any]:
         except Exception:
             tags = []
     keys = row.keys()
-    final_filename = row["finalVersionFilename"] if "finalVersionFilename" in keys else None
-    final_name = row["finalVersionOriginalName"] if "finalVersionOriginalName" in keys else None
+    default_filename = row["defaultVersionFilename"] if "defaultVersionFilename" in keys else None
+    default_name = row["defaultVersionOriginalName"] if "defaultVersionOriginalName" in keys else None
     return {
         "id": row["id"],
         "name": row["name"],
@@ -292,15 +282,14 @@ def row_to_model(row: sqlite3.Row) -> Dict[str, Any]:
         "groupName": row["groupName"] if "groupName" in keys else None,
         "versionNumber": int(row["versionNumber"]) if "versionNumber" in keys and row["versionNumber"] else 1,
         "versionCount": int(row["versionCount"] or 1) if "versionCount" in keys else 1,
-        "finalVersionId": row["finalVersionId"] if "finalVersionId" in keys else None,
-        "fileExtension": extension_of(final_filename) or extension_of(row["name"]),
-        "fileName": final_name or row["name"],
+        "versionIsFinal": bool(row["versionIsFinal"]) if "versionIsFinal" in keys else False,
+        "defaultVersionId": row["defaultVersionId"] if "defaultVersionId" in keys else None,
+        "fileExtension": extension_of(default_filename) or extension_of(row["name"]),
+        "fileName": default_name or row["name"],
     }
 
 
-def get_model_with_group(
-    conn: sqlite3.Connection, model_id: str
-) -> Optional[sqlite3.Row]:
+def get_model_with_group(conn: sqlite3.Connection, model_id: str) -> Optional[sqlite3.Row]:
     return conn.execute(
         f"""
         SELECT m.*, {MODEL_VERSION_COLUMNS}, mgm.groupId, mg.name AS groupName
@@ -343,6 +332,7 @@ def save_upload_file(upload_file: UploadFile, dest_path: str) -> int:
 
 # --- Model version helpers ---
 
+
 def insert_model_version(
     conn: sqlite3.Connection,
     model_id: str,
@@ -353,7 +343,7 @@ def insert_model_version(
     thumbnail: Optional[str],
     notes: str = "",
     date_added: Optional[int] = None,
-    is_final: bool = True,
+    is_default: bool = True,
     version_id: Optional[str] = None,
 ) -> str:
     version_id = version_id or str(uuid.uuid4())
@@ -361,14 +351,14 @@ def insert_model_version(
         "SELECT COALESCE(MAX(versionNumber), 0) + 1 FROM model_versions WHERE modelId=?",
         (model_id,),
     ).fetchone()[0]
-    if is_final:
-        conn.execute("UPDATE model_versions SET isFinal=0 WHERE modelId=?", (model_id,))
+    if is_default:
+        conn.execute("UPDATE model_versions SET isDefault=0 WHERE modelId=?", (model_id,))
     conn.execute(
         f"""
         INSERT INTO model_versions(
             id, modelId, versionNumber, filename, originalName, size,
-            dateAdded, notes, thumbnail, isFinal, isDeprecated
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            dateAdded, notes, thumbnail, isDefault, isFinal, isDeprecated
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
             version_id,
@@ -380,7 +370,8 @@ def insert_model_version(
             date_added or now_ms(),
             notes or "",
             thumbnail,
-            1 if is_final else 0,
+            1 if is_default else 0,
+            0,
             0,
         ),
     )
@@ -389,9 +380,7 @@ def insert_model_version(
 
 def ensure_model_version(conn: sqlite3.Connection, model: sqlite3.Row) -> None:
     """Give legacy models a v1 entry before any version operation runs."""
-    count = conn.execute(
-        "SELECT COUNT(*) FROM model_versions WHERE modelId=?", (model["id"],)
-    ).fetchone()[0]
+    count = conn.execute("SELECT COUNT(*) FROM model_versions WHERE modelId=?", (model["id"],)).fetchone()[0]
     if count:
         return
     insert_model_version(
@@ -406,18 +395,14 @@ def ensure_model_version(conn: sqlite3.Connection, model: sqlite3.Row) -> None:
     )
 
 
-def sync_model_with_final_version(conn: sqlite3.Connection, model_id: str) -> None:
-    version = conn.execute(
-        "SELECT * FROM model_versions WHERE modelId=? AND isFinal=1", (model_id,)
-    ).fetchone()
+def sync_model_with_default_version(conn: sqlite3.Connection, model_id: str) -> None:
+    version = conn.execute("SELECT * FROM model_versions WHERE modelId=? AND isDefault=1", (model_id,)).fetchone()
     if not version:
         return
     if version["size"] is not None:
         conn.execute("UPDATE models SET size=? WHERE id=?", (version["size"], model_id))
     if version["thumbnail"]:
-        conn.execute(
-            "UPDATE models SET thumbnail=? WHERE id=?", (version["thumbnail"], model_id)
-        )
+        conn.execute("UPDATE models SET thumbnail=? WHERE id=?", (version["thumbnail"], model_id))
 
 
 def add_model_version(
@@ -427,7 +412,7 @@ def add_model_version(
     thumbnail: Optional[str] = None,
     notes: Optional[str] = None,
 ) -> str:
-    """Store a new revision file and make it the model's final version."""
+    """Store a new revision file and make it the model's default version."""
     ensure_model_version(conn, model)
     version_id = str(uuid.uuid4())
     original_name = upload_file.filename or model["name"]
@@ -446,7 +431,7 @@ def add_model_version(
         notes=(notes or "").strip(),
         version_id=version_id,
     )
-    sync_model_with_final_version(conn, model["id"])
+    sync_model_with_default_version(conn, model["id"])
     return version_id
 
 
@@ -469,6 +454,7 @@ def row_to_model_version(row: sqlite3.Row, request: Request) -> Dict[str, Any]:
         "size": row["size"] or 0,
         "dateAdded": row["dateAdded"],
         "notes": row["notes"] or "",
+        "isDefault": bool(row["isDefault"]),
         "isFinal": bool(row["isFinal"]),
         "isDeprecated": bool(row["isDeprecated"]),
         "hasThumbnail": has_thumbnail,
@@ -479,11 +465,7 @@ def row_to_model_version(row: sqlite3.Row, request: Request) -> Dict[str, Any]:
 
 def decode_thumbnail(thumbnail: str) -> bytes:
     metadata, separator, payload = thumbnail.partition(",")
-    if (
-        not separator
-        or not metadata.startswith("data:")
-        or not metadata.endswith(";base64")
-    ):
+    if not separator or not metadata.startswith("data:") or not metadata.endswith(";base64"):
         raise HTTPException(status_code=415, detail="Invalid thumbnail format")
     try:
         return base64.b64decode(payload, validate=True)
@@ -494,9 +476,7 @@ def decode_thumbnail(thumbnail: str) -> bytes:
 def delete_model_files(conn: sqlite3.Connection, model_id: str) -> None:
     filenames = {
         row["filename"]
-        for row in conn.execute(
-            "SELECT filename FROM model_versions WHERE modelId=?", (model_id,)
-        ).fetchall()
+        for row in conn.execute("SELECT filename FROM model_versions WHERE modelId=?", (model_id,)).fetchall()
         if row["filename"]
     }
     try:
@@ -546,9 +526,7 @@ def row_to_model_group(row: sqlite3.Row, model_ids: List[str]) -> Dict[str, Any]
 
 
 def get_model_group(conn: sqlite3.Connection, group_id: str) -> Dict[str, Any]:
-    row = conn.execute(
-        "SELECT id, name, dateAdded FROM model_groups WHERE id=?", (group_id,)
-    ).fetchone()
+    row = conn.execute("SELECT id, name, dateAdded FROM model_groups WHERE id=?", (group_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Model group not found")
     members = conn.execute(
@@ -563,16 +541,11 @@ def validate_model_ids(conn: sqlite3.Connection, model_ids: List[str]):
         return
     placeholders = ",".join("?" for _ in model_ids)
     found = {
-        row["id"]
-        for row in conn.execute(
-            f"SELECT id FROM models WHERE id IN ({placeholders})", model_ids
-        ).fetchall()
+        row["id"] for row in conn.execute(f"SELECT id FROM models WHERE id IN ({placeholders})", model_ids).fetchall()
     }
     missing = [model_id for model_id in model_ids if model_id not in found]
     if missing:
-        raise HTTPException(
-            status_code=404, detail=f"Models not found: {', '.join(missing)}"
-        )
+        raise HTTPException(status_code=404, detail=f"Models not found: {', '.join(missing)}")
 
 
 def delete_group_if_empty(conn: sqlite3.Connection, group_id: Optional[str]):
@@ -590,9 +563,7 @@ def delete_group_if_empty(conn: sqlite3.Connection, group_id: Optional[str]):
     )
 
 
-def add_group_members(
-    conn: sqlite3.Connection, group_id: str, model_ids: List[str]
-):
+def add_group_members(conn: sqlite3.Connection, group_id: str, model_ids: List[str]):
     model_ids = list(dict.fromkeys(model_ids))
     validate_model_ids(conn, model_ids)
     if not model_ids:
@@ -603,21 +574,15 @@ def add_group_members(
         f"SELECT modelId, groupId FROM model_group_members WHERE modelId IN ({placeholders})",
         model_ids,
     ).fetchall()
-    conflicting = [
-        row["modelId"] for row in assigned if row["groupId"] != group_id
-    ]
+    conflicting = [row["modelId"] for row in assigned if row["groupId"] != group_id]
     if conflicting:
         raise HTTPException(
             status_code=409,
             detail="One or more models already belong to another model group",
         )
 
-    assigned_to_target = {
-        row["modelId"] for row in assigned if row["groupId"] == group_id
-    }
-    model_ids = [
-        model_id for model_id in model_ids if model_id not in assigned_to_target
-    ]
+    assigned_to_target = {row["modelId"] for row in assigned if row["groupId"] == group_id}
+    model_ids = [model_id for model_id in model_ids if model_id not in assigned_to_target]
     if not model_ids:
         return
 
@@ -627,10 +592,7 @@ def add_group_members(
     ).fetchone()[0]
     conn.executemany(
         "INSERT INTO model_group_members(modelId, groupId, position) VALUES (?,?,?)",
-        [
-            (model_id, group_id, next_position + offset)
-            for offset, model_id in enumerate(model_ids)
-        ],
+        [(model_id, group_id, next_position + offset) for offset, model_id in enumerate(model_ids)],
     )
 
 
@@ -696,9 +658,7 @@ def delete_folder(folder_id: str):
 @app.get("/api/model-groups")
 def get_model_groups():
     conn = get_db_conn()
-    rows = conn.execute(
-        "SELECT id, name, dateAdded FROM model_groups ORDER BY name COLLATE NOCASE"
-    ).fetchall()
+    rows = conn.execute("SELECT id, name, dateAdded FROM model_groups ORDER BY name COLLATE NOCASE").fetchall()
     groups = [get_model_group(conn, row["id"]) for row in rows]
     conn.close()
     return groups
@@ -783,9 +743,7 @@ def remove_model_from_group(group_id: str, model_id: str):
         )
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Model is not in this group")
-        remaining = conn.execute(
-            "SELECT COUNT(*) FROM model_group_members WHERE groupId=?", (group_id,)
-        ).fetchone()[0]
+        remaining = conn.execute("SELECT COUNT(*) FROM model_group_members WHERE groupId=?", (group_id,)).fetchone()[0]
         if remaining == 0:
             delete_group_if_empty(conn, group_id)
             conn.commit()
@@ -827,6 +785,7 @@ def get_models(request: Request, folderId: Optional[str] = None):
     conn.close()
     return [row_to_model_list_item(r, request) for r in rows]
 
+
 def get_model_info(modelId):
     conn = get_db_conn()
     if modelId is not None:
@@ -836,6 +795,7 @@ def get_model_info(modelId):
     conn.close()
     return row_to_model(m)
 
+
 @app.post("/api/models/upload")
 def upload_model(
     file: UploadFile = File(...),
@@ -844,11 +804,11 @@ def upload_model(
     tags: Optional[str] = Form(None),
 ):
     mid = str(uuid.uuid4())
-    
+
     # Ensure that file.filename is a string before passing it to os.path.splitext, providing a default value if it is None
     filename_str = file.filename or ".stl"
     ext = os.path.splitext(filename_str)[1] or ".stl"
-    
+
     filename = f"{mid}{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
     size = save_upload_file(file, path)
@@ -906,7 +866,8 @@ def upload_model(
             {
                 "versionNumber": 1,
                 "versionCount": 1,
-                "finalVersionId": version_id,
+                "versionIsFinal": False,
+                "defaultVersionId": version_id,
                 "fileExtension": ext.lstrip(".").lower(),
                 "fileName": filename_str,
             }
@@ -945,7 +906,7 @@ def update_model(model_id: str, updates: dict):
         cur.execute(sql, (*values, model_id))
         if "thumbnail" in updates:
             cur.execute(
-                "UPDATE model_versions SET thumbnail=? WHERE modelId=? AND isFinal=1",
+                "UPDATE model_versions SET thumbnail=? WHERE modelId=? AND isDefault=1",
                 (updates["thumbnail"], model_id),
             )
         conn.commit()
@@ -988,7 +949,7 @@ def download_model(model_id: str):
     version = conn.execute(
         """
         SELECT filename FROM model_versions
-        WHERE modelId=? AND isFinal=1 AND isDeprecated=0
+        WHERE modelId=? AND isDefault=1 AND isDeprecated=0
         """,
         (model_id,),
     ).fetchone()
@@ -998,11 +959,7 @@ def download_model(model_id: str):
     if version and version["filename"]:
         candidates.append(os.path.basename(version["filename"]))
     try:
-        candidates.extend(
-            fname
-            for fname in os.listdir(UPLOAD_DIR)
-            if os.path.splitext(fname)[0] == model_id
-        )
+        candidates.extend(fname for fname in os.listdir(UPLOAD_DIR) if os.path.splitext(fname)[0] == model_id)
     except FileNotFoundError:
         pass
 
@@ -1024,9 +981,7 @@ def bulk_delete(payload: dict):
     cur = conn.cursor()
     affected_group_ids = set()
     for mid in ids:
-        membership = cur.execute(
-            "SELECT groupId FROM model_group_members WHERE modelId=?", (mid,)
-        ).fetchone()
+        membership = cur.execute("SELECT groupId FROM model_group_members WHERE modelId=?", (mid,)).fetchone()
         if membership:
             affected_group_ids.add(membership["groupId"])
         # delete every revision file plus the legacy file
@@ -1108,9 +1063,7 @@ def replace_model_file(
 @app.get("/api/models/{model_id}/thumbnail", name="get_model_thumbnail")
 def get_model_thumbnail(model_id: str):
     conn = get_db_conn()
-    row = conn.execute(
-        "SELECT thumbnail FROM models WHERE id=?", (model_id,)
-    ).fetchone()
+    row = conn.execute("SELECT thumbnail FROM models WHERE id=?", (model_id,)).fetchone()
     conn.close()
     if not row or not row["thumbnail"]:
         raise HTTPException(status_code=404, detail="Thumbnail not found")
@@ -1124,22 +1077,20 @@ def get_model_thumbnail(model_id: str):
 
 
 @app.put("/api/models/{model_id}/thumbnail")
-def replace_model_thumbnail(
-    model_id: str, file: UploadFile = File(...)
-):
+def replace_model_thumbnail(model_id: str, file: UploadFile = File(...)):
     filename_str = file.filename
     ext = os.path.splitext(filename_str)[-1]
     if not ext:
         raise HTTPException(status_code=429, detail="File not Valid, Extension not found")
-    
+
     filebytes = file.file.read()
     encoded_string = base64.b64encode(filebytes)
     baseext = ext[1:]
-    thumbnail =  "data:image/" + baseext + ";base64," + encoded_string.decode()
-    
+    thumbnail = "data:image/" + baseext + ";base64," + encoded_string.decode()
+
     conn = get_db_conn()
     cur = conn.cursor()
-    
+
     m = cur.execute("SELECT * FROM models WHERE id=?", (model_id,)).fetchone()
     if not m:
         conn.close()
@@ -1150,7 +1101,7 @@ def replace_model_thumbnail(
         (thumbnail, model_id),
     )
     cur.execute(
-        "UPDATE model_versions SET thumbnail=? WHERE modelId=? AND isFinal=1",
+        "UPDATE model_versions SET thumbnail=? WHERE modelId=? AND isDefault=1",
         (thumbnail, model_id),
     )
     conn.commit()
@@ -1253,9 +1204,7 @@ def get_model_version_thumbnail(model_id: str, version_id: str):
 
 
 @app.patch("/api/models/{model_id}/versions/{version_id}")
-def update_model_version(
-    model_id: str, version_id: str, payload: ModelVersionUpdate
-):
+def update_model_version(model_id: str, version_id: str, payload: ModelVersionUpdate):
     conn = get_db_conn()
     try:
         version = conn.execute(
@@ -1271,21 +1220,23 @@ def update_model_version(
                 (payload.notes, version_id),
             )
 
-        if payload.isFinal is True:
+        if payload.isDefault is True:
             if version["isDeprecated"]:
-                raise HTTPException(
-                    status_code=400, detail="A deprecated revision cannot be final"
-                )
+                raise HTTPException(status_code=400, detail="A deprecated revision cannot be the default")
+            conn.execute("UPDATE model_versions SET isDefault=0 WHERE modelId=?", (model_id,))
+            conn.execute("UPDATE model_versions SET isDefault=1 WHERE id=?", (version_id,))
+            sync_model_with_default_version(conn, model_id)
+        elif payload.isDefault is False:
+            raise HTTPException(status_code=400, detail="A model must always have a default revision")
+
+        if payload.isFinal is not None:
+            if payload.isFinal and version["isDeprecated"]:
+                raise HTTPException(status_code=400, detail="A deprecated revision cannot be final")
+            if payload.isFinal:
+                conn.execute("UPDATE model_versions SET isFinal=0 WHERE modelId=?", (model_id,))
             conn.execute(
-                "UPDATE model_versions SET isFinal=0 WHERE modelId=?", (model_id,)
-            )
-            conn.execute(
-                "UPDATE model_versions SET isFinal=1 WHERE id=?", (version_id,)
-            )
-            sync_model_with_final_version(conn, model_id)
-        elif payload.isFinal is False:
-            raise HTTPException(
-                status_code=400, detail="A model must always have a final revision"
+                "UPDATE model_versions SET isFinal=? WHERE id=?",
+                (1 if payload.isFinal else 0, version_id),
             )
 
         conn.commit()
@@ -1312,10 +1263,15 @@ def deprecate_model_version(model_id: str, version_id: str):
         if version["isDeprecated"]:
             row = get_model_with_group(conn, model_id)
             return row_to_model(row)
+        if version["isDefault"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Set another revision as default before deprecating this one",
+            )
         if version["isFinal"]:
             raise HTTPException(
                 status_code=400,
-                detail="Set another revision as final before deprecating this one",
+                detail="Remove the final mark before deprecating this revision",
             )
         if version["filename"]:
             try:
@@ -1442,10 +1398,10 @@ def import_model_by_id(payload: dict):
     folderId = payload.get("folderId", "1")
     typeName = payload.get("typeName")
     mid = str(uuid.uuid4())
-    
+
     # we only save stl for now
     ext = typeName if typeName is not None else ".stl"
-    
+
     filename = f"{mid}.{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
 
@@ -1473,7 +1429,7 @@ def import_model_by_id(payload: dict):
         "dateAdded": now_ms(),
         "tags": ["imported"],
         "description": f"Imported from {source_label}",
-        "thumbnail": thumbnail
+        "thumbnail": thumbnail,
     }
 
     conn = get_db_conn()
@@ -1508,7 +1464,8 @@ def import_model_by_id(payload: dict):
             {
                 "versionNumber": 1,
                 "versionCount": 1,
-                "finalVersionId": version_id,
+                "versionIsFinal": False,
+                "defaultVersionId": version_id,
                 "fileExtension": str(ext).lstrip(".").lower(),
                 "fileName": modelName or filename,
             }
@@ -1552,16 +1509,10 @@ def import_printables_model_options(payload: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Ensure upload directory exists
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     port = int(os.getenv("PORT", "5173"))
-    
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=port,
-        reload=True,
-        log_level="info"
-    )
+
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True, log_level="info")
